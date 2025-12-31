@@ -186,7 +186,6 @@ int main() {
         static bool isSaving = false;
         if (ctrlPressed && glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
             if (!isSaving) {
-                for (auto& model : models) model.applyTransformations();
                 SceneManager::Save("scene.txt", models);
                 isSaving = true;
             }

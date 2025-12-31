@@ -2,6 +2,7 @@
 #include "../Graphics/PickingShader.h"
 #include "../Graphics/Shader.h"
 #include <filesystem>
+#include <sstream>
 #include <GLFW/glfw3.h>
 #include <Core/Camera.h>
 
@@ -18,53 +19,72 @@ void SceneManager::Clear(std::vector<Model>& models) {
 void SceneManager::Save(const std::string& filename, const std::vector<Model>& models) {
     std::ofstream file(filename);
     if (!file.is_open()) {
-        std::cerr << "Error: No se pudo abrir el archivo para guardar la escena.\n";
+        std::cerr << "Error: No se pudo crear el archivo de escena.\n";
         return;
     }
 
-    file << "# Archivo de escena en formato .OBJ\n";
-    file << "# Formato: vertices(v) normales(vn) caras(f)\n";
-
-    size_t vertexOffset = 0;
-
+    // Guardamos: Ruta PosX PosY PosZ RotX RotY RotZ ScaleX ScaleY ScaleZ ColorR ColorG ColorB
     for (const auto& model : models) {
-        file << "o " << "\n";
-        for (size_t i = 0; i < model.vertices.size(); i += 6) {
-            file << "v " << model.vertices[i] << " " << model.vertices[i + 1] << " " << model.vertices[i + 2] << "\n";
-        }
-        for (size_t i = 0; i < model.vertices.size(); i += 6) {
-            file << "vn " << model.vertices[i + 3] << " " << model.vertices[i + 4] << " " << model.vertices[i + 5] << "\n";
-        }
-        for (size_t i = 0; i < model.indices.size(); i += 3) {
-            file << "f "
-                << static_cast<size_t>(model.indices[i]) + 1 + vertexOffset << "//" << static_cast<size_t>(model.indices[i]) + 1 + vertexOffset << " "
-                << static_cast<size_t>(model.indices[i + 1]) + 1 + vertexOffset << "//" << static_cast<size_t>(model.indices[i + 1]) + 1 + vertexOffset << " "
-                << static_cast<size_t>(model.indices[i + 2]) + 1 + vertexOffset << "//" << static_cast<size_t>(model.indices[i + 2]) + 1 + vertexOffset << "\n";
-        }
-        vertexOffset += model.vertices.size() / 6;
+        if (model.path.empty()) continue; // Si no tiene ruta (ej: generado por código), lo saltamos o manejamos aparte
+
+        file << model.path << " "
+             << model.position.x << " " << model.position.y << " " << model.position.z << " "
+             << model.rotation.x << " " << model.rotation.y << " " << model.rotation.z << " "
+             << model.scale.x << " " << model.scale.y << " " << model.scale.z << " "
+             << model.color.r << " " << model.color.g << " " << model.color.b << "\n";
     }
+    
     file.close();
-    std::cout << "Escena guardada en " << filename << "\n";
+    std::cout << "Escena guardada optimizada en " << filename << "\n";
 }
 
 void SceneManager::Load(const std::string& filename, std::vector<Model>& models) {
-    Clear(models);
-    
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warn, err;
-
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename.c_str())) {
-        std::cerr << "Error cargando el archivo OBJ: " << err << std::endl;
+    std::ifstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error: No se encuentra el archivo de escena.\n";
         return;
     }
 
-    for (const auto& shape : shapes) {
-        Model newModel = Model::Process(attrib, { shape }, materials, false);
-        models.push_back(newModel);     
+    Clear(models); // Limpiar escena actual
+
+    std::string path;
+    glm::vec3 pos, rot, scl, col;
+
+    // Leer línea por línea
+    while (file >> path >> pos.x >> pos.y >> pos.z >> rot.x >> rot.y >> rot.z >> scl.x >> scl.y >> scl.z >> col.x >> col.y >> col.z) {
+        
+        // 1. Cargar la geometría original desde el disco
+        tinyobj::attrib_t attrib;
+        std::vector<tinyobj::shape_t> shapes;
+        std::vector<tinyobj::material_t> materials;
+        std::string warn, err;
+        
+        // Manejo básico de rutas relativas/absolutas
+        std::string baseDir = std::filesystem::path(path).parent_path().string() + "/";
+
+        if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path.c_str(), baseDir.c_str())) {
+            
+            // Procesar el modelo
+            Model newModel = Model::Process(attrib, shapes, materials, true);
+            
+            // 2. Restaurar propiedades guardadas
+            newModel.path = path;
+            newModel.position = pos;
+            newModel.rotation = rot;
+            newModel.scale = scl;
+            newModel.color = col;
+            
+            // Importante: Actualizar la matriz para que se vea reflejado visualmente
+            newModel.updateTransformMatrix(); 
+
+            models.push_back(newModel);
+        } else {
+            std::cerr << "No se pudo recargar el modelo: " << path << "\n";
+        }
     }
-    std::cout << "Escena cargada desde " << filename << "\n";
+    
+    file.close();
+    std::cout << "Escena cargada y restaurada desde " << filename << "\n";
 }
 
 void SceneManager::CheckCollisionWithPlatform(Model& model, float platformHeight) {
@@ -134,6 +154,7 @@ void SceneManager::ImportModel(std::vector<Model>& models) {
 
         if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath, baseDir.c_str())) {                   
             Model newModel = Model::Process(attrib, shapes, materials, true);
+            newModel.path = std::string(filepath);
             models.push_back(newModel);                    
             std::cout << "Modelo cargado: " << objPath.filename() << std::endl;
         } else {
