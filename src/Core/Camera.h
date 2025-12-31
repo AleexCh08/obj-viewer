@@ -28,8 +28,8 @@ public:
     void handleInput(GLFWwindow* window);
 
     // Obtener matrices calculadas
-    glm::mat4 getViewMatrix();
-    glm::mat4 getProjectionMatrix();
+    glm::mat4 getViewMatrix() const;
+    glm::mat4 getProjectionMatrix() const;
 
     // Actualizar tamaño de pantalla (si redimensionas la ventana)
     void updateScreenSize(int newWidth, int newHeight);

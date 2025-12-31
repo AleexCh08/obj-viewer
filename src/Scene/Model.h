@@ -10,8 +10,7 @@
 #include <limits>
 #include <algorithm> // Para std::max
 
-// Incluimos tiny_obj_loader. 
-// Como CMake ya sabe dónde está la carpeta include, esto debería funcionar.
+#include <tinyfiledialogs.h> 
 #include "tiny_obj_loader.h" 
 
 class Model {

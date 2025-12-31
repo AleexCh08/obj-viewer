@@ -1,4 +1,7 @@
 #include "SceneManager.h"
+#include <filesystem>
+#include <GLFW/glfw3.h>
+#include <Core/Camera.h>
 
 void SceneManager::Clear(std::vector<Model>& models) {
     for (auto& model : models) {
@@ -113,4 +116,67 @@ bool SceneManager::RayIntersectsBoundingBox(const glm::vec3& rayOrigin, const gl
     if (tzmin > tzmax) std::swap(tzmin, tzmax);
     if ((tmin > tzmax) || (tzmin > tmax)) return false;
     return true;
+}
+
+void SceneManager::ImportModel(std::vector<Model>& models) {
+    const char* fileFilter[1] = { "*.obj" };
+    const char* filepath = tinyfd_openFileDialog("Selecciona archivo OBJ", "", 1, fileFilter, "Archivos OBJ", 0);
+
+    if (filepath) {
+        tinyobj::attrib_t attrib;
+        std::vector<tinyobj::shape_t> shapes;
+        std::vector<tinyobj::material_t> materials;
+        std::string warn, err;
+
+        std::filesystem::path objPath(filepath);
+        std::string baseDir = objPath.parent_path().string() + "/";
+
+        if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath, baseDir.c_str())) {                   
+            // Nota: Aquí usamos Model::Process tal cual lo definimos antes
+            Model newModel = Model::Process(attrib, shapes, materials, true);
+            models.push_back(newModel);                    
+            std::cout << "Modelo cargado: " << objPath.filename() << std::endl;
+        } else {
+            std::cerr << "Error cargando el archivo OBJ: " << err << std::endl;
+        }
+    }
+}
+
+int SceneManager::PickModel(GLFWwindow* window, const std::vector<Model>& models, const Camera& camera) {
+    double mouseX, mouseY;
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+
+    int winWidth, winHeight;
+    glfwGetWindowSize(window, &winWidth, &winHeight);
+
+    // Obtener el rayo
+    glm::vec3 rayOrigin = camera.eye;
+    glm::vec3 rayDirection = GetRayFromMouse(mouseX, mouseY, winWidth, winHeight, camera.getProjectionMatrix(), camera.getViewMatrix());
+
+    int selectedIndex = -1;
+
+    // Verificar intersección con cada modelo
+    for (size_t i = 0; i < models.size(); ++i) {
+        glm::vec3 minBounds(std::numeric_limits<float>::max());
+        glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
+
+        // Calcular el Bounding Box TRANSFORMADO (Esto es pesado, mejor que esté aquí que en el main)
+        for (size_t j = 0; j < models[i].originalVertices.size(); j += 6) {
+            glm::vec4 position(
+                models[i].originalVertices[j],
+                models[i].originalVertices[j + 1],
+                models[i].originalVertices[j + 2],
+                1.0f
+            );
+            position = models[i].transformMatrix * position;
+            minBounds = glm::min(minBounds, glm::vec3(position));
+            maxBounds = glm::max(maxBounds, glm::vec3(position));
+        }
+
+        if (RayIntersectsBoundingBox(rayOrigin, rayDirection, minBounds, maxBounds)) {
+            selectedIndex = static_cast<int>(i);
+            break; // Seleccionamos el primero que encontremos
+        }
+    }
+    return selectedIndex;
 }

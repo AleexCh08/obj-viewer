@@ -20,11 +20,11 @@ void Camera::updateScreenSize(int newWidth, int newHeight) {
     this->height = (float)newHeight;
 }
 
-glm::mat4 Camera::getViewMatrix() {
+glm::mat4 Camera::getViewMatrix() const {
     return glm::lookAt(eye, target, up);
 }
 
-glm::mat4 Camera::getProjectionMatrix() {
+glm::mat4 Camera::getProjectionMatrix() const {
     return glm::perspective(glm::radians(45.0f), width / height, 0.1f, 100.0f);
 }
 
