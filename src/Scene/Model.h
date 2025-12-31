@@ -22,9 +22,9 @@ public:
     std::vector<unsigned int> indices;
 
     // --- Transformaciones ---
-    glm::mat4 rotationMatrix = glm::mat4(1.0f);
-    glm::mat4 translationMatrix = glm::mat4(1.0f);
-    glm::mat4 scaleMatrix = glm::mat4(1.0f);
+    glm::vec3 position = glm::vec3(0.0f);
+    glm::vec3 rotation = glm::vec3(0.0f); 
+    glm::vec3 scale    = glm::vec3(1.0f);
     glm::mat4 transformMatrix = glm::mat4(1.0f);
 
     // --- Propiedades ---
@@ -32,7 +32,6 @@ public:
     glm::vec3 originalColor;
     glm::vec3 localMinBounds;
     glm::vec3 localMaxBounds;
-    float scaleX = 1.0f, scaleY = 1.0f, scaleZ = 1.0f;
 
     // --- Constructor y Destructor ---
     Model();

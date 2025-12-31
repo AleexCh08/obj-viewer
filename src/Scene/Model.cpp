@@ -31,24 +31,39 @@ void Model::setupModel() {
 }
 
 void Model::updateTransformMatrix() {
-    transformMatrix = translationMatrix * rotationMatrix * scaleMatrix;
+    glm::mat4 mat = glm::mat4(1.0f);
+    
+    // 1. Traslación
+    mat = glm::translate(mat, position);
+    
+    // 2. Rotación (Euler Angles: Y -> X -> Z)
+    mat = glm::rotate(mat, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+    mat = glm::rotate(mat, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+    mat = glm::rotate(mat, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+    
+    // 3. Escala
+    mat = glm::scale(mat, scale);
+    
+    this->transformMatrix = mat;
 }
 
 void Model::applyTransformations() {    
+    // Al guardar, "quemamos" la transformación en los vértices
     for (size_t i = 0; i < originalVertices.size(); i += 6) {
-        glm::vec4 position(
-            originalVertices[i],
-            originalVertices[i + 1],
-            originalVertices[i + 2],
-            1.0f
-        );
-
+        glm::vec4 position(originalVertices[i], originalVertices[i+1], originalVertices[i+2], 1.0f);
         position = transformMatrix * position;
-
+        
+        // Actualizamos vértices
         vertices[i] = position.x;
         vertices[i + 1] = position.y;
         vertices[i + 2] = position.z;
-    }       
+        // Nota: Las normales también deberían rotarse, pero para simplificar lo dejamos así por ahora
+    }
+    // Resetear transformaciones tras aplicar
+    position = glm::vec3(0.0f);
+    rotation = glm::vec3(0.0f);
+    scale = glm::vec3(1.0f);
+    updateTransformMatrix();
 }
 
 void Model::draw(GLuint shaderProgram) const {

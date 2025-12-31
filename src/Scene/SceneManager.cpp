@@ -86,7 +86,7 @@ void SceneManager::CheckCollisionWithPlatform(Model& model, float platformHeight
 
     if (minY < platformHeight) {
         float offset = platformHeight - minY;
-        model.translationMatrix = glm::translate(model.translationMatrix, glm::vec3(0.0f, offset, 0.0f));
+        model.position.y += offset;
         model.updateTransformMatrix();
     }
 }

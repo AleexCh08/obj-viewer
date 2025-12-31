@@ -1,4 +1,6 @@
 #include "UIManager.h"
+#include <imgui_internal.h>
+#include <string>
 
 // Función auxiliar para mostrar tooltips (ayuda al pasar el mouse)
 static void HelpMarker(const char* desc) {
@@ -10,6 +12,69 @@ static void HelpMarker(const char* desc) {
         ImGui::PopTextWrapPos();
         ImGui::EndTooltip();
     }
+}
+
+static bool DrawVec3Control(const std::string& label, glm::vec3& values, float resetValue = 0.0f, float speed = 0.05f) {
+    bool changed = false;
+    ImGui::PushID(label.c_str());
+
+    // Configuración de estilo para los botones de ejes
+    float buttonWidth = 20.0f; 
+    float itemWidth = (ImGui::GetContentRegionAvail().x - 40) / 3.0f - buttonWidth; 
+
+    // --- EJE X (ROJO) ---
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.2f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.1f, 0.15f, 1.0f));
+    if (ImGui::Button("X", ImVec2(buttonWidth, 0))) {
+        values.x = resetValue; 
+        changed = true;
+    }
+    ImGui::PopStyleColor(3);
+
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(itemWidth);
+    if (ImGui::DragFloat("##X", &values.x, speed, 0.0f, 0.0f, "%.2f")) changed = true;
+    
+    // --- EJE Y (VERDE) ---
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+    if (ImGui::Button("Y", ImVec2(buttonWidth, 0))) {
+        values.y = resetValue;
+        changed = true;
+    }
+    ImGui::PopStyleColor(3);
+
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(itemWidth);
+    if (ImGui::DragFloat("##Y", &values.y, speed, 0.0f, 0.0f, "%.2f")) changed = true;
+
+    // --- EJE Z (AZUL) ---
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.25f, 0.8f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.35f, 0.9f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.25f, 0.8f, 1.0f));
+    if (ImGui::Button("Z", ImVec2(buttonWidth, 0))) {
+        values.z = resetValue;
+        changed = true;
+    }
+    ImGui::PopStyleColor(3);
+
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(itemWidth);
+    if (ImGui::DragFloat("##Z", &values.z, speed, 0.0f, 0.0f, "%.2f")) changed = true;
+
+    ImGui::SameLine();
+    if (ImGui::Button("R")) { 
+        values = glm::vec3(resetValue);
+        changed = true;
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Resetear %s", label.c_str());
+
+    ImGui::PopID();
+    return changed;
 }
 
 void UIManager::Init(GLFWwindow* window) {
@@ -172,6 +237,65 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 90, 30), ImGuiCond_Always);
         ImGui::Begin("Stats", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
         ImGui::Text("%.1f FPS", fps);
+        ImGui::End();
+    }
+
+    // 4. BARRA DE HERRAMIENTAS INFERIOR (Transformaciones)
+    // Solo mostrar si hay un modelo seleccionado
+    if (selectedModelIndex != -1 && selectedModelIndex < (int)models.size()) {
+        Model& currentModel = models[selectedModelIndex];
+
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        // Altura de 120px para que quepa todo cómodo
+        ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - 120));
+        ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, 120));
+        ImGui::SetNextWindowBgAlpha(0.9f);
+
+        ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
+        ImGui::Begin("Transform Bar", NULL, flags);
+
+        // Título del objeto seleccionado
+        ImGui::TextColored(ImVec4(1, 0.8f, 0, 1), "OBJETO SELECCIONADO: ID %d", selectedModelIndex);
+        ImGui::Separator();
+
+        // Usamos nuestro Widget Pro
+        ImGui::Columns(4, "TransformCols", false); // 4 Columnas: Pos, Rot, Esc, Acciones
+
+        // Posición
+        ImGui::Text("Posición");
+        if (DrawVec3Control("Pos", currentModel.position, 0.0f, 0.05f)) {
+            currentModel.updateTransformMatrix();
+        }
+        ImGui::NextColumn();
+
+        // Rotación
+        ImGui::Text("Rotación");
+        if (DrawVec3Control("Rot", currentModel.rotation, 0.0f, 0.5f)) {
+            currentModel.updateTransformMatrix();
+        }
+        ImGui::NextColumn();
+
+        // Escala
+        ImGui::Text("Escala");
+        if (DrawVec3Control("Scl", currentModel.scale, 1.0f, 0.02f)) {
+            // Evitar escala 0 o negativa
+            if(currentModel.scale.x < 0.01f) currentModel.scale.x = 0.01f;
+            if(currentModel.scale.y < 0.01f) currentModel.scale.y = 0.01f;
+            if(currentModel.scale.z < 0.01f) currentModel.scale.z = 0.01f;
+            currentModel.updateTransformMatrix();
+        }
+        ImGui::NextColumn();
+
+        // Botón Eliminar (Grande y centrado verticalmente)
+        ImGui::Dummy(ImVec2(0, 15)); // Espaciado
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+        if (ImGui::Button("ELIMINAR", ImVec2(-1, 40))) {
+            SceneManager::DeleteSelectedModel(models, selectedModelIndex);
+        }
+        ImGui::PopStyleColor(2);
+
+        ImGui::EndColumns();
         ImGui::End();
     }
 

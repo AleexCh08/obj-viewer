@@ -16,12 +16,12 @@
 
 // Funcion principal para la ejecucion del programa
 int main() {
-    GLFWwindow* window = Window::Init(800, 600, "ViewerOBJ Pro");
+    GLFWwindow* window = Window::Init(1024, 768, "ViewerOBJ Pro");
     if (!window) return -1;
 
     Shader shader(vertexShaderSource, fragmentShaderSource);
     GLuint shaderProgram = shader.ID;
-    Camera camera(800, 600, glm::vec3(0.0f, 1.5f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    Camera camera(1024, 768, glm::vec3(0.0f, 1.5f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     UIState ui;
     UIManager::Init(window); 
     Grid grid(20.0f, 20, 5);
@@ -101,9 +101,7 @@ int main() {
         // Manejo de cámara y transformación
         if (selectedModelIndex == -1) {
             camera.handleInput(window);           
-        } else {     
-            InputController::handleModelTranslation(window, models[selectedModelIndex]);
-            InputController::handleModelScaling(window, models[selectedModelIndex]);
+        } else {
             InputController::handleModelRotation(window, models[selectedModelIndex], lastMousePos, 0.3f);
         }
   
