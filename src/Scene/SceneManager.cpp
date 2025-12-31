@@ -61,7 +61,6 @@ void SceneManager::Load(const std::string& filename, std::vector<Model>& models)
     }
 
     for (const auto& shape : shapes) {
-        // Usamos Model::Process que creamos en el paso anterior
         Model newModel = Model::Process(attrib, { shape }, materials, false);
         models.push_back(newModel);     
     }
@@ -134,7 +133,6 @@ void SceneManager::ImportModel(std::vector<Model>& models) {
         std::string baseDir = objPath.parent_path().string() + "/";
 
         if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath, baseDir.c_str())) {                   
-            // Nota: Aquí usamos Model::Process tal cual lo definimos antes
             Model newModel = Model::Process(attrib, shapes, materials, true);
             models.push_back(newModel);                    
             std::cout << "Modelo cargado: " << objPath.filename() << std::endl;

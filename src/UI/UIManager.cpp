@@ -2,7 +2,6 @@
 #include <imgui_internal.h>
 #include <string>
 
-// Función auxiliar para mostrar tooltips (ayuda al pasar el mouse)
 static void HelpMarker(const char* desc) {
     ImGui::TextDisabled("(?)");
     if (ImGui::IsItemHovered()) {
@@ -17,8 +16,6 @@ static void HelpMarker(const char* desc) {
 static bool DrawVec3Control(const std::string& label, glm::vec3& values, float resetValue = 0.0f, float speed = 0.05f) {
     bool changed = false;
     ImGui::PushID(label.c_str());
-
-    // Configuración de estilo para los botones de ejes
     float buttonWidth = 20.0f; 
     float itemWidth = (ImGui::GetContentRegionAvail().x - 40) / 3.0f - buttonWidth; 
 
@@ -246,7 +243,6 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         Model& currentModel = models[selectedModelIndex];
 
         ImGuiViewport* viewport = ImGui::GetMainViewport();
-        // Altura de 120px para que quepa todo cómodo
         ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - 120));
         ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, 120));
         ImGui::SetNextWindowBgAlpha(0.9f);
@@ -254,16 +250,14 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
         ImGui::Begin("Transform Bar", NULL, flags);
 
-        // Título del objeto seleccionado
+
         ImGui::TextColored(ImVec4(1, 0.8f, 0, 1), "OBJETO SELECCIONADO: ID %d", selectedModelIndex);
         ImGui::Separator();
-
-        // Usamos nuestro Widget Pro
-        ImGui::Columns(4, "TransformCols", false); // 4 Columnas: Pos, Rot, Esc, Acciones
+        ImGui::Columns(4, "TransformCols", false); 
 
         // Posición
         ImGui::Text("Posición");
-        if (DrawVec3Control("Pos", currentModel.position, 0.0f, 0.05f)) {
+        if (DrawVec3Control("Pos", currentModel.position, 0.0f, 0.02f)) {
             currentModel.updateTransformMatrix();
         }
         ImGui::NextColumn();
@@ -286,8 +280,7 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         }
         ImGui::NextColumn();
 
-        // Botón Eliminar (Grande y centrado verticalmente)
-        ImGui::Dummy(ImVec2(0, 15)); // Espaciado
+        ImGui::Dummy(ImVec2(0, 15)); 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
         if (ImGui::Button("ELIMINAR", ImVec2(-1, 40))) {
