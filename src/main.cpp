@@ -79,21 +79,40 @@ int main() {
 
         glfwPollEvents();
 
-        // Lógica para seleccionar un modelo al hacer clic
-        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !ImGui::GetIO().WantCaptureMouse) {
-            int pickedIndex = SceneManager::PickModel(window, models, camera);
-            
-            if (pickedIndex != -1) {
-                selectedModelIndex = pickedIndex;
-            } else {
-                selectedModelIndex = -1; 
-            }
+        // Logica de click vs arrastre
+        static bool isMousePressed = false;
+        static glm::vec2 mousePressStart(0.0f);
+        bool isPressedNow = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
 
-            for (size_t i = 0; i < models.size(); ++i) {
-                if ((int)i == selectedModelIndex) {
-                    models[i].color = glm::vec3(1.0f, 0.0f, 0.0f);
-                } else if(!ui.enableColorChange) {
-                    models[i].color = models[i].originalColor;
+        if (isPressedNow && !isMousePressed && !ImGui::GetIO().WantCaptureMouse) {
+            isMousePressed = true;
+            double x, y; glfwGetCursorPos(window, &x, &y);
+            mousePressStart = glm::vec2(x, y);
+        }
+        
+        else if (!isPressedNow && isMousePressed) {
+            isMousePressed = false;
+            
+            double x, y; glfwGetCursorPos(window, &x, &y);
+            glm::vec2 mouseReleaseEnd = glm::vec2(x, y);
+
+            float distance = glm::length(mouseReleaseEnd - mousePressStart);
+
+            if (distance < 5.0f) {
+                int pickedIndex = SceneManager::PickModel(window, models, camera);
+                
+                if (pickedIndex != -1) {
+                    selectedModelIndex = pickedIndex;
+                } else {
+                    selectedModelIndex = -1; 
+                }
+
+                for (size_t i = 0; i < models.size(); ++i) {
+                    if ((int)i == selectedModelIndex) {
+                        models[i].color = glm::vec3(1.0f, 0.0f, 0.0f);
+                    } else if(!ui.enableColorChange) {
+                        models[i].color = models[i].originalColor;
+                    }
                 }
             }
         }
