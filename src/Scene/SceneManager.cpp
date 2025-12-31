@@ -23,9 +23,8 @@ void SceneManager::Save(const std::string& filename, const std::vector<Model>& m
         return;
     }
 
-    // Guardamos: Ruta PosX PosY PosZ RotX RotY RotZ ScaleX ScaleY ScaleZ ColorR ColorG ColorB
     for (const auto& model : models) {
-        if (model.path.empty()) continue; // Si no tiene ruta (ej: generado por código), lo saltamos o manejamos aparte
+        if (model.path.empty()) continue;
 
         file << model.path << " "
              << model.position.x << " " << model.position.y << " " << model.position.z << " "
@@ -45,36 +44,29 @@ void SceneManager::Load(const std::string& filename, std::vector<Model>& models)
         return;
     }
 
-    Clear(models); // Limpiar escena actual
+    Clear(models); 
 
     std::string path;
     glm::vec3 pos, rot, scl, col;
 
-    // Leer línea por línea
     while (file >> path >> pos.x >> pos.y >> pos.z >> rot.x >> rot.y >> rot.z >> scl.x >> scl.y >> scl.z >> col.x >> col.y >> col.z) {
         
-        // 1. Cargar la geometría original desde el disco
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
         std::vector<tinyobj::material_t> materials;
         std::string warn, err;
         
-        // Manejo básico de rutas relativas/absolutas
         std::string baseDir = std::filesystem::path(path).parent_path().string() + "/";
 
         if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path.c_str(), baseDir.c_str())) {
-            
-            // Procesar el modelo
             Model newModel = Model::Process(attrib, shapes, materials, true);
             
-            // 2. Restaurar propiedades guardadas
             newModel.path = path;
             newModel.position = pos;
             newModel.rotation = rot;
             newModel.scale = scl;
             newModel.color = col;
             
-            // Importante: Actualizar la matriz para que se vea reflejado visualmente
             newModel.updateTransformMatrix(); 
 
             models.push_back(newModel);

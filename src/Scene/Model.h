@@ -33,6 +33,9 @@ public:
     Model();
     std::string path;
 
+    GLuint debugNormalsVAO = 0, debugNormalsVBO = 0;
+    GLuint debugBoxVAO = 0, debugBoxVBO = 0;
+
     void setupModel();
     void updateTransformMatrix();
     void applyTransformations();
@@ -41,6 +44,6 @@ public:
     static Model Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes, const std::vector<tinyobj::material_t>& materials, bool normalize);
     static void Normalize(Model& model);
 
-    void drawDebugNormals(GLuint shaderProgram, const glm::vec3& color) const;
-    void drawDebugBoundingBox(GLuint shaderProgram, const glm::vec3& color) const;
+    void drawDebugNormals(GLuint shaderProgram, const glm::vec3& color);
+    void drawDebugBoundingBox(GLuint shaderProgram, const glm::vec3& color);
 };

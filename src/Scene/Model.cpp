@@ -50,6 +50,9 @@ void Model::applyTransformations() {
     rotation = glm::vec3(0.0f);
     scale = glm::vec3(1.0f);
     updateTransformMatrix();
+
+    if (debugNormalsVAO != 0) { glDeleteVertexArrays(1, &debugNormalsVAO); debugNormalsVAO = 0; }
+    if (debugBoxVAO != 0)     { glDeleteVertexArrays(1, &debugBoxVAO);     debugBoxVAO = 0; }
 }
 
 void Model::draw(GLuint shaderProgram) const {
@@ -145,85 +148,92 @@ Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj:
     return model;
 }
 
-void Model::drawDebugNormals(GLuint shaderProgram, const glm::vec3& color) const {
-    std::vector<float> normalLines;
-    for (size_t i = 0; i < vertices.size(); i += 6) {
-        glm::vec3 position(vertices[i], vertices[i + 1], vertices[i + 2]);
-        glm::vec3 normal(vertices[i + 3], vertices[i + 4], vertices[i + 5]);
-        
-        normalLines.push_back(position.x);
-        normalLines.push_back(position.y);
-        normalLines.push_back(position.z);
-        normalLines.push_back(position.x + normal.x * 0.1f);
-        normalLines.push_back(position.y + normal.y * 0.1f);
-        normalLines.push_back(position.z + normal.z * 0.1f);
+void Model::drawDebugNormals(GLuint shaderProgram, const glm::vec3& color) {
+    // 1. SI NO EXISTE, LO CREAMOS (Solo ocurre 1 vez)
+    if (debugNormalsVAO == 0) {
+        std::vector<float> normalLines;
+        // Usamos la geometría original para generar las líneas
+        for (size_t i = 0; i < vertices.size(); i += 6) {
+            glm::vec3 pos(vertices[i], vertices[i + 1], vertices[i + 2]);
+            glm::vec3 norm(vertices[i + 3], vertices[i + 4], vertices[i + 5]);
+            
+            // Línea desde el vértice hacia afuera
+            normalLines.push_back(pos.x);
+            normalLines.push_back(pos.y);
+            normalLines.push_back(pos.z);
+            
+            glm::vec3 endPos = pos + norm * 0.1f; // Largo de la normal
+            normalLines.push_back(endPos.x);
+            normalLines.push_back(endPos.y);
+            normalLines.push_back(endPos.z);
+        }
+
+        glGenVertexArrays(1, &debugNormalsVAO);
+        glGenBuffers(1, &debugNormalsVBO);
+        glBindVertexArray(debugNormalsVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, debugNormalsVBO);
+        glBufferData(GL_ARRAY_BUFFER, normalLines.size() * sizeof(float), normalLines.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+        glBindVertexArray(0);
     }
 
-    GLuint VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, normalLines.size() * sizeof(float), normalLines.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
+    // 2. DIBUJAR (Esto es lo único que se ejecuta en cada frame -> Rápido)
+    glBindVertexArray(debugNormalsVAO);
     glUniform1i(glGetUniformLocation(shaderProgram, "useNormalsColor"), true);
     glUniform3fv(glGetUniformLocation(shaderProgram, "normalsColor"), 1, glm::value_ptr(color));
 
-    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(normalLines.size() / 3));
+    // Calculamos cantidad de vértices (vertices.size() / 6 * 2)
+    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(vertices.size() / 3));
 
     glBindVertexArray(0);
-    glDeleteBuffers(1, &VBO);
-    glDeleteVertexArrays(1, &VAO);
     glUniform1i(glGetUniformLocation(shaderProgram, "useNormalsColor"), false);
 }
 
-void Model::drawDebugBoundingBox(GLuint shaderProgram, const glm::vec3& color) const {
-    glm::vec3 minBounds(FLT_MAX);
-    glm::vec3 maxBounds(-FLT_MAX);
+void Model::drawDebugBoundingBox(GLuint shaderProgram, const glm::vec3& color) {
+    // 1. SI NO EXISTE, LO CREAMOS
+    if (debugBoxVAO == 0) {
+        // Usamos los bounds que YA calculamos al cargar el modelo (O(1))
+        // en lugar de recorrer todos los vértices otra vez (O(N))
+        glm::vec3 min = localMinBounds;
+        glm::vec3 max = localMaxBounds;
 
-    for (size_t i = 0; i < vertices.size(); i += 6) {
-        glm::vec3 pos(vertices[i], vertices[i + 1], vertices[i + 2]);
-        minBounds = glm::min(minBounds, pos);
-        maxBounds = glm::max(maxBounds, pos);
+        std::vector<glm::vec3> lines = {
+            {min.x, min.y, min.z}, {max.x, min.y, min.z}, // Base
+            {max.x, min.y, min.z}, {max.x, min.y, max.z},
+            {max.x, min.y, max.z}, {min.x, min.y, max.z},
+            {min.x, min.y, max.z}, {min.x, min.y, min.z},
+            
+            {min.x, max.y, min.z}, {max.x, max.y, min.z}, // Tope
+            {max.x, max.y, min.z}, {max.x, max.y, max.z},
+            {max.x, max.y, max.z}, {min.x, max.y, max.z},
+            {min.x, max.y, max.z}, {min.x, max.y, min.z},
+            
+            {min.x, min.y, min.z}, {min.x, max.y, min.z}, // Columnas
+            {max.x, min.y, min.z}, {max.x, max.y, min.z},
+            {max.x, min.y, max.z}, {max.x, max.y, max.z},
+            {min.x, min.y, max.z}, {min.x, max.y, max.z}
+        };
+
+        glGenVertexArrays(1, &debugBoxVAO);
+        glGenBuffers(1, &debugBoxVBO);
+        glBindVertexArray(debugBoxVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, debugBoxVBO);
+        glBufferData(GL_ARRAY_BUFFER, lines.size() * sizeof(glm::vec3), lines.data(), GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+        glEnableVertexAttribArray(0);
+        glBindVertexArray(0);
     }
 
-    std::vector<glm::vec3> corners = {
-        {minBounds.x, minBounds.y, minBounds.z}, {maxBounds.x, minBounds.y, minBounds.z},
-        {maxBounds.x, minBounds.y, minBounds.z}, {maxBounds.x, maxBounds.y, minBounds.z},
-        {maxBounds.x, maxBounds.y, minBounds.z}, {minBounds.x, maxBounds.y, minBounds.z},
-        {minBounds.x, maxBounds.y, minBounds.z}, {minBounds.x, minBounds.y, minBounds.z},
-        {minBounds.x, minBounds.y, maxBounds.z}, {maxBounds.x, minBounds.y, maxBounds.z},
-        {maxBounds.x, minBounds.y, maxBounds.z}, {maxBounds.x, maxBounds.y, maxBounds.z},
-        {maxBounds.x, maxBounds.y, maxBounds.z}, {minBounds.x, maxBounds.y, maxBounds.z},
-        {minBounds.x, maxBounds.y, maxBounds.z}, {minBounds.x, minBounds.y, maxBounds.z},
-        {minBounds.x, minBounds.y, minBounds.z}, {minBounds.x, minBounds.y, maxBounds.z},
-        {maxBounds.x, minBounds.y, minBounds.z}, {maxBounds.x, minBounds.y, maxBounds.z},
-        {maxBounds.x, maxBounds.y, minBounds.z}, {maxBounds.x, maxBounds.y, maxBounds.z},
-        {minBounds.x, maxBounds.y, minBounds.z}, {minBounds.x, maxBounds.y, maxBounds.z},
-    };
-
-    GLuint VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, corners.size() * sizeof(glm::vec3), corners.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(0);
-
+    // 2. DIBUJAR
     glUseProgram(shaderProgram);
+    glBindVertexArray(debugBoxVAO);
+    
     glUniform1i(glGetUniformLocation(shaderProgram, "useBoundingBoxColor"), true);
     glUniform3fv(glGetUniformLocation(shaderProgram, "boundingBoxColor"), 1, glm::value_ptr(color));
    
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(-1.0f, -1.0f);
-    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(corners.size()));
-    glDisable(GL_POLYGON_OFFSET_FILL);
+    glDrawArrays(GL_LINES, 0, 24);
 
     glBindVertexArray(0);
-    glDeleteBuffers(1, &VBO);
-    glDeleteVertexArrays(1, &VAO);
     glUniform1i(glGetUniformLocation(shaderProgram, "useBoundingBoxColor"), false);
 }
