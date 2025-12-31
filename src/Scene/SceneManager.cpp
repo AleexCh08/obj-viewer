@@ -180,3 +180,18 @@ int SceneManager::PickModel(GLFWwindow* window, const std::vector<Model>& models
     }
     return selectedIndex;
 }
+
+void SceneManager::DeleteSelectedModel(std::vector<Model>& models, int& selectedIndex) {
+    if (selectedIndex < 0 || selectedIndex >= static_cast<int>(models.size())) return;
+
+    Model& model = models[selectedIndex];
+    glDeleteBuffers(1, &model.VBO);
+    glDeleteBuffers(1, &model.EBO);
+    glDeleteVertexArrays(1, &model.VAO);
+
+    models.erase(models.begin() + selectedIndex);
+
+    selectedIndex = -1;
+    
+    std::cout << "Modelo eliminado correctamente." << std::endl;
+}

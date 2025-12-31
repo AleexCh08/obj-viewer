@@ -26,7 +26,6 @@ public:
 
     // Importar un modelo usando diálogo de archivo
     static void ImportModel(std::vector<Model>& models);
-
-    // Intentar seleccionar un modelo con el mouse
+    static void DeleteSelectedModel(std::vector<Model>& models, int& selectedIndex);
     static int PickModel(GLFWwindow* window, const std::vector<Model>& models, const Camera& camera);
 };

@@ -201,6 +201,13 @@ int main() {
             isClearing = false;
         }
 
+        // ELIMINAR MODELO SELECCIONADO (Backspace o Supr)
+        if ((glfwGetKey(window, GLFW_KEY_BACKSPACE) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_DELETE) == GLFW_PRESS)) {
+            if (selectedModelIndex != -1) {
+                SceneManager::DeleteSelectedModel(models, selectedModelIndex);
+            }
+        }
+
         // SALIR (Esc)
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
             glfwSetWindowShouldClose(window, true);
