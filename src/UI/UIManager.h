@@ -4,6 +4,7 @@
 #include "../imgui/imgui_impl_glfw.h"
 #include "../imgui/imgui_impl_opengl3.h"
 #include "../Scene/Model.h"
+#include <Scene/SceneManager.h>
 #include <glm/glm.hpp>
 #include <vector>
 
@@ -25,6 +26,7 @@ struct UIState {
     bool enableAntialiasing = true;
     bool showBoundingBox = false;
     bool enableColorChange = false;
+    bool showPropertiesPanel = true;
 };
 
 class UIManager {
@@ -33,5 +35,5 @@ public:
     static void Shutdown();
     
     // Función principal que dibuja toda la interfaz
-    static void Render(UIState& state, std::vector<Model>& models, int selectedModelIndex, double fps);
+    static void Render(GLFWwindow* window, UIState& state, std::vector<Model>& models, int& selectedModelIndex, double fps);
 };

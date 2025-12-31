@@ -79,11 +79,6 @@ int main() {
 
         glfwPollEvents();
 
-        // Lógica para cargar modelos
-        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
-            SceneManager::ImportModel(models);
-        }
-
         // Lógica para seleccionar un modelo al hacer clic
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !ImGui::GetIO().WantCaptureMouse) {
             int pickedIndex = SceneManager::PickModel(window, models, camera);
@@ -154,21 +149,64 @@ int main() {
             if (ui.showWireframe) glDisable(GL_POLYGON_OFFSET_LINE); 
         }
 
-        if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS) {
-            for (auto& model : models) model.applyTransformations();
-            SceneManager::Save("scene.txt", models);
-        }
-        if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS) {
-            selectedModelIndex = -1;
-            SceneManager::Load("scene.txt", models);
-        }
-        if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
-            selectedModelIndex = -1;
-            SceneManager::Clear(models);
-        }
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
+        // Atajos del teclado  
+        // Detectar si la tecla Control está presionada (Izquierda o Derecha)
+        bool ctrlPressed = glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || 
+                           glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS;
 
-        UIManager::Render(ui, models, selectedModelIndex, fps);
+        // IMPORTAR MODELO (Ctrl + O)
+        static bool isImporting = false; 
+        if (ctrlPressed && glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
+            if (!isImporting) {
+                SceneManager::ImportModel(models);
+                isImporting = true; 
+            }
+        } else {
+            isImporting = false;
+        }
+
+        // GUARDAR ESCENA (Ctrl + S)
+        static bool isSaving = false;
+        if (ctrlPressed && glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+            if (!isSaving) {
+                for (auto& model : models) model.applyTransformations();
+                SceneManager::Save("scene.txt", models);
+                isSaving = true;
+            }
+        } else {
+            isSaving = false;
+        }
+
+        // CARGAR ESCENA (Ctrl + L)
+        static bool isLoading = false;
+        if (ctrlPressed && glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
+            if (!isLoading) {
+                selectedModelIndex = -1;
+                SceneManager::Load("scene.txt", models);
+                isLoading = true;
+            }
+        } else {
+            isLoading = false;
+        }
+
+        // LIMPIAR ESCENA (Ctrl + N)
+        static bool isClearing = false;
+        if (ctrlPressed && glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS) {
+            if (!isClearing) {
+                selectedModelIndex = -1;
+                SceneManager::Clear(models);
+                isClearing = true;
+            }
+        } else {
+            isClearing = false;
+        }
+
+        // SALIR (Esc)
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+            glfwSetWindowShouldClose(window, true);
+        }
+
+        UIManager::Render(window, ui, models, selectedModelIndex, fps);
         glfwSwapBuffers(window);
     }
 
