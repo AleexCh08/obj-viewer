@@ -52,4 +52,8 @@ public:
     
     // Normalizar tamaño
     static void Normalize(Model& model);
+
+    // --- Debug Rendering ---
+    void drawDebugNormals(GLuint shaderProgram, const glm::vec3& color) const;
+    void drawDebugBoundingBox(GLuint shaderProgram, const glm::vec3& color) const;
 };

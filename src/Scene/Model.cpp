@@ -162,3 +162,88 @@ Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj:
     
     return model;
 }
+
+// ... (resto del código anterior) ...
+
+void Model::drawDebugNormals(GLuint shaderProgram, const glm::vec3& color) const {
+    std::vector<float> normalLines;
+    for (size_t i = 0; i < vertices.size(); i += 6) {
+        glm::vec3 position(vertices[i], vertices[i + 1], vertices[i + 2]);
+        glm::vec3 normal(vertices[i + 3], vertices[i + 4], vertices[i + 5]);
+        
+        normalLines.push_back(position.x);
+        normalLines.push_back(position.y);
+        normalLines.push_back(position.z);
+        normalLines.push_back(position.x + normal.x * 0.1f);
+        normalLines.push_back(position.y + normal.y * 0.1f);
+        normalLines.push_back(position.z + normal.z * 0.1f);
+    }
+
+    GLuint VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, normalLines.size() * sizeof(float), normalLines.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glUniform1i(glGetUniformLocation(shaderProgram, "useNormalsColor"), true);
+    glUniform3fv(glGetUniformLocation(shaderProgram, "normalsColor"), 1, glm::value_ptr(color));
+
+    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(normalLines.size() / 3));
+
+    glBindVertexArray(0);
+    glDeleteBuffers(1, &VBO);
+    glDeleteVertexArrays(1, &VAO);
+    glUniform1i(glGetUniformLocation(shaderProgram, "useNormalsColor"), false);
+}
+
+void Model::drawDebugBoundingBox(GLuint shaderProgram, const glm::vec3& color) const {
+    glm::vec3 minBounds(FLT_MAX);
+    glm::vec3 maxBounds(-FLT_MAX);
+
+    for (size_t i = 0; i < vertices.size(); i += 6) {
+        glm::vec3 pos(vertices[i], vertices[i + 1], vertices[i + 2]);
+        minBounds = glm::min(minBounds, pos);
+        maxBounds = glm::max(maxBounds, pos);
+    }
+
+    std::vector<glm::vec3> corners = {
+        {minBounds.x, minBounds.y, minBounds.z}, {maxBounds.x, minBounds.y, minBounds.z},
+        {maxBounds.x, minBounds.y, minBounds.z}, {maxBounds.x, maxBounds.y, minBounds.z},
+        {maxBounds.x, maxBounds.y, minBounds.z}, {minBounds.x, maxBounds.y, minBounds.z},
+        {minBounds.x, maxBounds.y, minBounds.z}, {minBounds.x, minBounds.y, minBounds.z},
+        {minBounds.x, minBounds.y, maxBounds.z}, {maxBounds.x, minBounds.y, maxBounds.z},
+        {maxBounds.x, minBounds.y, maxBounds.z}, {maxBounds.x, maxBounds.y, maxBounds.z},
+        {maxBounds.x, maxBounds.y, maxBounds.z}, {minBounds.x, maxBounds.y, maxBounds.z},
+        {minBounds.x, maxBounds.y, maxBounds.z}, {minBounds.x, minBounds.y, maxBounds.z},
+        {minBounds.x, minBounds.y, minBounds.z}, {minBounds.x, minBounds.y, maxBounds.z},
+        {maxBounds.x, minBounds.y, minBounds.z}, {maxBounds.x, minBounds.y, maxBounds.z},
+        {maxBounds.x, maxBounds.y, minBounds.z}, {maxBounds.x, maxBounds.y, maxBounds.z},
+        {minBounds.x, maxBounds.y, minBounds.z}, {minBounds.x, maxBounds.y, maxBounds.z},
+    };
+
+    GLuint VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, corners.size() * sizeof(glm::vec3), corners.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glUseProgram(shaderProgram);
+    glUniform1i(glGetUniformLocation(shaderProgram, "useBoundingBoxColor"), true);
+    glUniform3fv(glGetUniformLocation(shaderProgram, "boundingBoxColor"), 1, glm::value_ptr(color));
+   
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(-1.0f, -1.0f);
+    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(corners.size()));
+    glDisable(GL_POLYGON_OFFSET_FILL);
+
+    glBindVertexArray(0);
+    glDeleteBuffers(1, &VBO);
+    glDeleteVertexArrays(1, &VAO);
+    glUniform1i(glGetUniformLocation(shaderProgram, "useBoundingBoxColor"), false);
+}

@@ -5,363 +5,14 @@
 #include "Scene/Model.h"
 #include "Graphics/Grid.h"
 #include "Scene/SceneManager.h"
+#include "Core/Window.h"
+#include "Core/InputController.h"
 // Librerias estandar
 #include <iostream>
 #include <vector>
 #include <string>
 #include <filesystem>
 #include <fstream>
-
-// Función de callback para manejar cambios en el tamaño del framebuffer
-static void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
-}
-
-// Función de inicialización de GLFW y creación de la ventana
-static GLFWwindow* initWindow(int width, int height, const char* title) {
-    if (!glfwInit()) {
-        std::cerr << "No se pudo inicializar GLFW" << std::endl;
-        return nullptr;
-    }
-
-    glfwWindowHint(GLFW_SAMPLES, 16);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-    GLFWwindow* window = glfwCreateWindow(width, height, title, nullptr, nullptr);
-    if (!window) {
-        std::cerr << "No se pudo crear la ventana GLFW" << std::endl;
-        glfwTerminate();
-        return nullptr;
-    }
-
-    glfwMakeContextCurrent(window);
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "No se pudo inicializar Glad" << std::endl;
-        glfwTerminate();
-        return nullptr;
-    }
-
-    glViewport(0, 0, width, height);
-    glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-    glEnable(GL_DEPTH_TEST);
-    return window;
-}
-
-// Función para trasladar un modelo
-static void translateModel(Model& model, glm::vec3 translation) {
-    model.translationMatrix = glm::translate(model.translationMatrix, translation);
-    model.updateTransformMatrix();
-}
-
-// Control de entrada para trasladar el modelo actual
-static void handleModelTranslation(GLFWwindow* window, Model& model) {
-    glm::vec3 translation(0.0f);
-    const float speed = 0.002f; // Velocidad de traslación
-    // W: Arriba, S: Abajo, A: Izquierda, D: Derecha, Q: Atras, E: Adelante
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-        translation.y += speed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-        translation.y -= speed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-        translation.x -= speed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-        translation.x += speed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
-        translation.z -= speed;
-    }
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
-        translation.z += speed;
-    }
-    if (translation != glm::vec3(0.0f)) {
-        translateModel(model, translation);
-    }
-}
-
-// Función para escalar un modelo
-static void scaleModel(Model& model, float sx, float sy, float sz) {
-    model.scaleMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(sx, sy, sz));
-    model.updateTransformMatrix();
-}
-
-// Manejar la entrada para escalar el modelo
-static void handleModelScaling(GLFWwindow* window, Model& model) {
-    const float scaleStep = 0.001f; // Incremento para el escalamiento
-    static float lastSx = model.scaleX, lastSy = model.scaleY, lastSz = model.scaleZ;
-
-    // Y: Arriba, H: Abajo, G: Izquierda, J: Derecha, T: Atras, U: Adelante
-    if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS) {
-        model.scaleY = glm::clamp(model.scaleY + scaleStep, 0.1f, 10.0f);
-    }
-    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS) {
-        model.scaleY = glm::clamp(model.scaleY - scaleStep, 0.1f, 10.0f);
-    }
-    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) {
-        model.scaleX = glm::clamp(model.scaleX + scaleStep, 0.1f, 10.0f);
-    }
-    if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS) {
-        model.scaleX = glm::clamp(model.scaleX - scaleStep, 0.1f, 10.0f);
-    }
-    if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS) {
-        model.scaleZ = glm::clamp(model.scaleZ + scaleStep, 0.1f, 10.0f);
-    }
-    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
-        model.scaleZ = glm::clamp(model.scaleZ - scaleStep, 0.1f, 10.0f);
-    }
-
-    // Aplicar escalamiento solo si hay cambios
-    if (model.scaleX != lastSx || model.scaleY != lastSy || model.scaleZ != lastSz) {
-        scaleModel(model, model.scaleX, model.scaleY, model.scaleZ);
-        lastSx = model.scaleX;
-        lastSy = model.scaleY;
-        lastSz = model.scaleZ;
-    }
-}
-
-// Función para rotar un modelo
-static void rotateModel(Model& model, glm::vec2 deltaMouse, float sensitivity) {
-    float angleX = deltaMouse.y * sensitivity;
-    float angleY = deltaMouse.x * sensitivity;
-
-    glm::mat4 rotationX = glm::rotate(glm::mat4(1.0f), glm::radians(angleX), glm::vec3(1.0f, 0.0f, 0.0f));
-    glm::mat4 rotationY = glm::rotate(glm::mat4(1.0f), glm::radians(angleY), glm::vec3(0.0f, 1.0f, 0.0f));
-
-    model.rotationMatrix = rotationY * rotationX * model.rotationMatrix;
-    model.updateTransformMatrix();
-}
-
-// Manejar la entrada del ratón para rotar el modelo
-static void handleModelRotation(GLFWwindow* window, Model& model, glm::vec2& lastMousePos, float sensitivity) {
-    static bool isRotating = false; // Estado de rotación
-    static glm::vec2 initialMousePos; // Posición inicial del ratón al presionar CTRL
-
-    // Verificar si la tecla CTRL está presionada
-    bool ctrlPressed = (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) ||
-        (glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS);
-
-    if (ctrlPressed && !isRotating) {
-        // Iniciar rotación: guardar posición inicial del ratón
-        double mouseX, mouseY;
-        glfwGetCursorPos(window, &mouseX, &mouseY);
-        initialMousePos = glm::vec2(mouseX, mouseY);
-        lastMousePos = initialMousePos;
-        isRotating = true;
-    }
-    else if (!ctrlPressed && isRotating) {
-        // Finalizar rotación
-        isRotating = false;
-    }
-
-    if (isRotating) {
-        // Calcular movimiento relativo del ratón desde que se presionó CTRL
-        double mouseX, mouseY;
-        glfwGetCursorPos(window, &mouseX, &mouseY);
-        glm::vec2 currentMousePos(mouseX, mouseY);
-        glm::vec2 deltaMouse = currentMousePos - lastMousePos;
-        lastMousePos = currentMousePos;
-
-        // Aplicar rotación proporcional al movimiento
-        rotateModel(model, deltaMouse, sensitivity);
-    }
-}
-
-// Manejar la entrada del ratón para rotar la escena y el movimiento de la cámara
-static void handleSceneAndCamera(GLFWwindow* window, glm::mat4& viewMatrix, glm::vec3& eye, glm::vec3& target, glm::vec3& up, glm::vec2& lastMousePos, float sensitivity, float speed) {  
-    static bool isDragging = false; // Variable para rastrear si se está arrastrando el ratón
-
-    // Verificar si el botón izquierdo del ratón está presionado
-    if (!ImGui::IsAnyItemHovered() && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-        if (!isDragging) {
-            // Si no se estaba arrastrando, capturar la posición inicial del ratón
-            double mouseX, mouseY;
-            glfwGetCursorPos(window, &mouseX, &mouseY);
-            lastMousePos = glm::vec2(mouseX, mouseY);
-            isDragging = true; // Indicar que se está arrastrando
-        } else {       
-            // Si se está arrastrando, calcular el movimiento del ratón
-            double mouseX, mouseY;
-            glfwGetCursorPos(window, &mouseX, &mouseY);
-
-            glm::vec2 currentMousePos(mouseX, mouseY);
-            glm::vec2 deltaMouse = currentMousePos - lastMousePos;
-            lastMousePos = currentMousePos;
-
-            float angleX = deltaMouse.y * sensitivity;
-            float angleY = deltaMouse.x * sensitivity;
-
-            // Rotar alrededor del objetivo
-            glm::mat4 rotationY = glm::rotate(glm::mat4(1.0f), glm::radians(angleY), up);
-            glm::vec3 right = glm::normalize(glm::cross(up, glm::normalize(target - eye)));
-            glm::mat4 rotationX = glm::rotate(glm::mat4(1.0f), glm::radians(angleX), right);
-            glm::mat4 rotation = rotationX * rotationY;
-
-            // Actualizar la posición del ojo
-            eye = glm::vec3(rotation * glm::vec4(eye - target, 1.0f)) + target;
-
-            // Limitar la rotación vertical
-            if (eye.y < 0.0f) {
-                eye.y = 0.0f;
-            }
-
-            viewMatrix = glm::lookAt(eye, target, up);
-        }
-    } else {           
-        isDragging = false; // Si el botón izquierdo del ratón no está presionado, dejar de arrastrar
-    }
-
-    // Manejar el movimiento de la cámara hacia adelante y atrás
-    glm::vec3 direction = glm::normalize(target - eye);
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-        eye += direction * speed;
-        viewMatrix = glm::lookAt(eye, target, up); // Actualizar la vista cuando se mueve la cámara
-    }
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-        eye -= direction * speed;
-        viewMatrix = glm::lookAt(eye, target, up); // Actualizar la vista cuando se mueve la cámara
-    }
-}
-
-// Cambiar el color de fondo
-static void changeBackgroundColor(GLFWwindow* window, glm::vec3& bgColor) {
-    if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
-        bgColor = glm::vec3(0.0f, 0.0f, 0.0f); // Negro
-    }
-    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
-        bgColor = glm::vec3(0.46f, 0.46f, 0.46f); // Gris
-    }
-    if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
-        bgColor = glm::vec3(0.46f, 0.0f, 0.0f); // Rojo
-    }
-    if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS) {
-        bgColor = glm::vec3(0.0f, 0.46f, 0.0f); // Verde
-    }
-    if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS) {
-        bgColor = glm::vec3(0.0f, 0.0f, 0.46f); // Azul
-    }
-    if (glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS) {
-        bgColor = glm::vec3(0.46f, 0.46f, 0.0f); // Amarillo
-    }
-    if (glfwGetKey(window, GLFW_KEY_7) == GLFW_PRESS) {
-        bgColor = glm::vec3(0.46f, 0.0f, 0.46f); // Magenta
-    }
-    if (glfwGetKey(window, GLFW_KEY_8) == GLFW_PRESS) {
-        bgColor = glm::vec3(0.0f, 0.46f, 0.46f); // Cian
-    }
-}
-
-// Dibujar las normales de cada vertice
-static void drawNormals(const Model& model, GLuint shaderProgram, glm::vec3& normalsColor) {
-    std::vector<float> normalLines;
-    for (size_t i = 0; i < model.vertices.size(); i += 6) {
-        // Posición del vértice
-        glm::vec3 position(model.vertices[i], model.vertices[i + 1], model.vertices[i + 2]);
-        // Dirección de la normal
-        glm::vec3 normal(model.vertices[i + 3], model.vertices[i + 4], model.vertices[i + 5]);
-        // Línea que parte del vértice en la dirección de la normal
-        normalLines.push_back(position.x);
-        normalLines.push_back(position.y);
-        normalLines.push_back(position.z);
-        normalLines.push_back(position.x + normal.x * 0.1f);
-        normalLines.push_back(position.y + normal.y * 0.1f);
-        normalLines.push_back(position.z + normal.z * 0.1f);
-    }
-
-    GLuint VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, normalLines.size() * sizeof(float), normalLines.data(), GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glUniform1i(glGetUniformLocation(shaderProgram, "useNormalsColor"), true);
-    GLuint normalsColorLoc = glGetUniformLocation(shaderProgram, "normalsColor");
-    glUniform3fv(normalsColorLoc, 1, glm::value_ptr(normalsColor));
-
-    glBindVertexArray(VAO);
-    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(normalLines.size() / 3));
-    glBindVertexArray(0);
-
-    glDeleteBuffers(1, &VBO);
-    glDeleteVertexArrays(1, &VAO);
-
-    glUniform1i(glGetUniformLocation(shaderProgram, "useNormalsColor"), false);
-}
-
-// Funcion para dibujar el bounding box del objeto
-static void drawBoundingBox(const Model& model, GLuint shaderProgram, const glm::vec3& color) {
-    // Inicializar los límites del bounding box
-    glm::vec3 minBounds(std::numeric_limits<float>::max());
-    glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
-
-    // Calcular los límites del bounding box
-    for (size_t i = 0; i < model.vertices.size(); i += 6) {
-        glm::vec3 pos(model.vertices[i], model.vertices[i + 1], model.vertices[i + 2]);
-        minBounds = glm::min(minBounds, pos);
-        maxBounds = glm::max(maxBounds, pos);
-    }
-
-    // Esquinas del bounding box
-    std::vector<glm::vec3> corners = {
-        {minBounds.x, minBounds.y, minBounds.z}, {maxBounds.x, minBounds.y, minBounds.z},
-        {maxBounds.x, minBounds.y, minBounds.z}, {maxBounds.x, maxBounds.y, minBounds.z},
-        {maxBounds.x, maxBounds.y, minBounds.z}, {minBounds.x, maxBounds.y, minBounds.z},
-        {minBounds.x, maxBounds.y, minBounds.z}, {minBounds.x, minBounds.y, minBounds.z},
-
-        {minBounds.x, minBounds.y, maxBounds.z}, {maxBounds.x, minBounds.y, maxBounds.z},
-        {maxBounds.x, minBounds.y, maxBounds.z}, {maxBounds.x, maxBounds.y, maxBounds.z},
-        {maxBounds.x, maxBounds.y, maxBounds.z}, {minBounds.x, maxBounds.y, maxBounds.z},
-        {minBounds.x, maxBounds.y, maxBounds.z}, {minBounds.x, minBounds.y, maxBounds.z},
-
-        {minBounds.x, minBounds.y, minBounds.z}, {minBounds.x, minBounds.y, maxBounds.z},
-        {maxBounds.x, minBounds.y, minBounds.z}, {maxBounds.x, minBounds.y, maxBounds.z},
-        {maxBounds.x, maxBounds.y, minBounds.z}, {maxBounds.x, maxBounds.y, maxBounds.z},
-        {minBounds.x, maxBounds.y, minBounds.z}, {minBounds.x, maxBounds.y, maxBounds.z},
-    };
-
-    // Crear y configurar VAO y VBO
-    GLuint VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, corners.size() * sizeof(glm::vec3), corners.data(), GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    // Usar el shader program y configurar el color
-    glUseProgram(shaderProgram);
-    glUniform1i(glGetUniformLocation(shaderProgram, "useBoundingBoxColor"), true);
-    GLuint colorLoc = glGetUniformLocation(shaderProgram, "boundingBoxColor");
-    glUniform3fv(colorLoc, 1, glm::value_ptr(color));
-   
-    // Evitar z-fighting
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(-1.0f, -1.0f); // Ajustar valores para desplazar el bounding box
-
-    // Dibujar el bounding box
-    glBindVertexArray(VAO);
-    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(corners.size()));
-    glBindVertexArray(0);
-
-    // Limpiar recursos
-    glDisable(GL_POLYGON_OFFSET_FILL); // Desactivar después de dibujar
-    glDeleteBuffers(1, &VBO);
-    glDeleteVertexArrays(1, &VAO);
-
-    glUniform1i(glGetUniformLocation(shaderProgram, "useBoundingBoxColor"), false);
-}
 
 // Shaders básicos:
 // Shader de vertices
@@ -462,7 +113,7 @@ R"(
 // Funcion principal para la ejecucion del programa
 int main() {
     // Inicializar la ventana
-    GLFWwindow* window = initWindow(800, 600, "Cargar OBJ");
+    GLFWwindow* window = Window::Init(800, 600, "ViewerOBJ Pro");
     if (!window) return -1;
 
     Shader shader(vertexShaderSource, fragmentShaderSource);
@@ -593,7 +244,7 @@ int main() {
         }
         
         // Actualizar el color de fondo y limpiar buffers
-        changeBackgroundColor(window, bgColor);
+        InputController::changeBackgroundColor(window, bgColor);
         glClearColor(bgColor.r, bgColor.g, bgColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -681,9 +332,9 @@ int main() {
         if (selectedModelIndex == -1) {
             camera.handleInput(window);           
         } else {     
-            handleModelTranslation(window, models[selectedModelIndex]);
-            handleModelScaling(window, models[selectedModelIndex]);
-            handleModelRotation(window, models[selectedModelIndex], lastMousePos, 0.3f);
+            InputController::handleModelTranslation(window, models[selectedModelIndex]);
+            InputController::handleModelScaling(window, models[selectedModelIndex]);
+            InputController::handleModelRotation(window, models[selectedModelIndex], lastMousePos, 0.3f);
         }
   
         // Verificar colisión con la plataforma para todos los modelos
@@ -741,11 +392,11 @@ int main() {
             models[i].draw(shaderProgram);
             // Dibujar las normales
             if (showNormals) {
-                drawNormals(models[i], shaderProgram, normalsColor);
+                models[i].drawDebugNormals(shaderProgram, normalsColor);
             }
             // Dibujar el bounding box 
             if (showBoundingBox && selectedModelIndex == i) {
-                drawBoundingBox(models[selectedModelIndex], shaderProgram, boundingBoxColor);             
+                models[selectedModelIndex].drawDebugBoundingBox(shaderProgram, boundingBoxColor);             
             }
             // Desactivar offset después de renderizar
             if (showWireframe) {
