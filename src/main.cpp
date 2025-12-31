@@ -1,5 +1,4 @@
-// Librerias necesarias
-#include "headers.h"
+// Librerias necesarias 
 #include "Graphics/Shader.h"
 #include "Core/Camera.h"
 #include "Scene/Model.h"
@@ -7,6 +6,8 @@
 #include "Scene/SceneManager.h"
 #include "Core/Window.h"
 #include "Core/InputController.h"
+#include "UI/UIManager.h"
+
 // Librerias estandar
 #include <iostream>
 #include <vector>
@@ -119,6 +120,7 @@ int main() {
     Shader shader(vertexShaderSource, fragmentShaderSource);
     GLuint shaderProgram = shader.ID;
     Camera camera(800, 600, glm::vec3(0.0f, 1.5f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    UIState ui;
 
 
     glm::vec3 bgColor(0.46f, 0.46f, 0.46f); // Color de fondo inicial
@@ -129,29 +131,7 @@ int main() {
     glm::vec2 lastMousePos(0.0f, 0.0f); // Obtener la posición del cursor
     
     // Inicializar Dear ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImGui::StyleColorsDark(); // Tema oscuro por defecto
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 330");
-
-    float vertexSize = 5.0f; // Tamaño inicial de los vértices
-    glm::vec3 vertexColor(0.0f, 0.0f, 0.0f); // Color inicial de los vértices 
-    glm::vec3 wireframeColor(0.0f, 1.0f, 0.0f); // Color inicial del alambrado   
-    glm::vec3 normalsColor(0.7f, 0.7f, 0.7f); // Color inicial de las normales
-    glm::vec3 boundingBoxColor(1.0f, 1.0f, 0.0f); // Color inicial para el bounding box
-    glm::vec3 newColor(1.0f, 1.0f, 1.0f); // Color inicial de los triangulos
-
-    bool showVertices = false; // Control para mostrar/ocultar vértices
-    bool showWireframe = false; // Control para mostrar/ocultar alambrado
-    bool showNormals = false; // Control para mostrar/ocultar normales
-    bool enableDepthTest = true; // Control para habilitar/deshabilitar Z-buffer
-    bool enableBackFaceCulling = true; // Control para habilitar/deshabilitar back-face culling
-    bool showFPS = true; // Control para mostrar/ocultar FPS promedio
-    bool enableAntialiasing = true; // Control para habilitar/deshabilitar antialiasing
-    bool showBoundingBox = false; // Control para mostrar bounding box
-    bool enableColorChange = false; // Mostrar/ocultar relleno de triangulos
+    UIManager::Init(window);
 
     // Variables para FPS promedio
     double lastTime = glfwGetTime(); // Tiempo del último frame
@@ -170,37 +150,37 @@ int main() {
 
         // Interfaz de usuario
         ImGui::Begin("Opciones de Renderizado");    
-        ImGui::Checkbox("Ver/Ocultar vértices", &showVertices); // Mostrar/ocultar vértices     
-        if (showVertices) {
-            ImGui::ColorEdit3("Color de vértices", (float*)&vertexColor); // Cambiar color de vértices
-            ImGui::SliderFloat("Tamaño de vértices", &vertexSize, 1.0f, 10.0f); // Cambiar tamaño de vértices
+        ImGui::Checkbox("Ver/Ocultar vértices", &ui.showVertices); // Mostrar/ocultar vértices     
+        if (ui.showVertices) {
+            ImGui::ColorEdit3("Color de vértices", (float*)&ui.vertexColor); // Cambiar color de vértices
+            ImGui::SliderFloat("Tamaño de vértices", &ui.vertexSize, 1.0f, 10.0f); // Cambiar tamaño de vértices
         }
-        ImGui::Checkbox("Ver/Ocultar alambrado", &showWireframe); // Mostrar/ocultar alambrado
-        if (showWireframe) {
-            ImGui::ColorEdit3("Color de alambrado", (float*)&wireframeColor); // Cambiar color del alambrado
+        ImGui::Checkbox("Ver/Ocultar alambrado", &ui.showWireframe); // Mostrar/ocultar alambrado
+        if (ui.showWireframe) {
+            ImGui::ColorEdit3("Color de alambrado", (float*)&ui.wireframeColor); // Cambiar color del alambrado
         }
         if (!models.empty()) { // Verificar si hay modelos cargados                       
-            ImGui::Checkbox("Ver/Ocultar relleno de triangulos", &enableColorChange); // Cambiar color del relleno
-            if (enableColorChange) {               
-                ImGui::ColorEdit3("Color del modelo", (float*)&newColor);               
+            ImGui::Checkbox("Ver/Ocultar relleno de triangulos", &ui.enableColorChange); // Cambiar color del relleno
+            if (ui.enableColorChange) {               
+                ImGui::ColorEdit3("Color del modelo", (float*)&ui.newColor);               
                 for (size_t i = 0; i < models.size(); ++i) { // Actualizar el color de todos los modelos excepto el seleccionado
                     if (static_cast<int>(i) != selectedModelIndex) {
-                        models[i].color = newColor;
+                        models[i].color = ui.newColor;
                     }
                 }
             }            
         }
-        ImGui::Checkbox("Ver/Ocultar normales", &showNormals); // Mostrar/ocultar normales
-        if (showNormals) {
-            ImGui::ColorEdit3("Color de las normales", (float*)&normalsColor); // Cambiar el color de las normales
+        ImGui::Checkbox("Ver/Ocultar normales", &ui.showNormals); // Mostrar/ocultar normales
+        if (ui.showNormals) {
+            ImGui::ColorEdit3("Color de las normales", (float*)&ui.normalsColor); // Cambiar el color de las normales
         }
-        ImGui::Checkbox("Habilitar Z-buffer", &enableDepthTest); // Habilitar/deshabilitar Z-buffer
-        ImGui::Checkbox("Habilitar Back-face Culling", &enableBackFaceCulling); // Habilitar/deshabilitar back-face culling
-        ImGui::Checkbox("Mostrar FPS", &showFPS); // Mostrar/ocultar FPS
-        ImGui::Checkbox("Habilitar Antialiasing", &enableAntialiasing); // Habilitar/deshabilitar antialiasing
-        ImGui::Checkbox("Mostrar Bounding Box", &showBoundingBox); // Habilitar bounding box
-        if (showBoundingBox) {
-            ImGui::ColorEdit3("Color del Bounding Box", (float*)&boundingBoxColor); // Cambiar color del bounding box
+        ImGui::Checkbox("Habilitar Z-buffer", &ui.enableDepthTest); // Habilitar/deshabilitar Z-buffer
+        ImGui::Checkbox("Habilitar Back-face Culling", &ui.enableBackFaceCulling); // Habilitar/deshabilitar back-face culling
+        ImGui::Checkbox("Mostrar FPS", &ui.showFPS); // Mostrar/ocultar FPS
+        ImGui::Checkbox("Habilitar Antialiasing", &ui.enableAntialiasing); // Habilitar/deshabilitar antialiasing
+        ImGui::Checkbox("Mostrar Bounding Box", &ui.showBoundingBox); // Habilitar bounding box
+        if (ui.showBoundingBox) {
+            ImGui::ColorEdit3("Color del Bounding Box", (float*)&ui.boundingBoxColor); // Cambiar color del bounding box
         }    
         ImGui::End();
 
@@ -214,14 +194,14 @@ int main() {
         }
 
         // Mostrar FPS si la opción está activada
-        if (showFPS) {
+        if (ui.showFPS) {
             ImGui::Begin("FPS");
             ImGui::Text("%.2f", fps); // Mostrar FPS promedio
             ImGui::End();
         }
 
         // Configurar el Z-buffer
-        if (enableDepthTest) {
+        if (ui.enableDepthTest) {
             glEnable(GL_DEPTH_TEST); // Habilitar Z-buffer
             glDepthFunc(GL_LESS);
         } else {
@@ -229,7 +209,7 @@ int main() {
         }
         
         // Confiugar el back-face culling
-        if (enableBackFaceCulling) {
+        if (ui.enableBackFaceCulling) {
             glEnable(GL_CULL_FACE); // Habilitar Back-face Culling
             glCullFace(GL_BACK);    // Eliminar caras traseras
         } else {        
@@ -237,7 +217,7 @@ int main() {
         }
 
         // Configurar MSAA (antialiasing)
-        if (enableAntialiasing) {
+        if (ui.enableAntialiasing) {
             glEnable(GL_MULTISAMPLE); // Habilitar MSAA
         } else {
             glDisable(GL_MULTISAMPLE); // Deshabilitar MSAA
@@ -322,7 +302,7 @@ int main() {
                 if (static_cast<int>(i) == selectedModelIndex) {
                     models[i].color = glm::vec3(1.0f, 0.0f, 0.0f); // Rojo al seleccionar
                 }
-                else if(!enableColorChange) {
+                else if(!ui.enableColorChange) {
                     models[i].color = models[i].originalColor; // Restaurar color original
                 }
             }
@@ -345,61 +325,46 @@ int main() {
         grid.draw(shaderProgram, camera.getViewMatrix(), camera.getProjectionMatrix(), glm::vec3(0.7f, 0.7f, 0.7f));
 
         // Renderizar todos los modelos cargados
+        // Renderizar todos los modelos cargados
         for (size_t i = 0; i < models.size(); ++i) {
-            if (showVertices) {
-                glPolygonMode(GL_FRONT_AND_BACK, GL_POINT); // Mostrar solo vertices
-                GLuint pointSizeLoc = glGetUniformLocation(shaderProgram, "pointSize");
-                glUniform1f(pointSizeLoc, vertexSize); // Pasar el tamaño de los puntos al shader
-            } else if (showWireframe) {           
-                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); // Mostrar alambrado
-                GLuint useWireframeColorLoc = glGetUniformLocation(shaderProgram, "useWireframeColor");
-                glUniform1i(useWireframeColorLoc, 1);
-                GLuint wireframeColorLoc = glGetUniformLocation(shaderProgram, "wireframeColor");
-                glUniform3fv(wireframeColorLoc, 1, glm::value_ptr(wireframeColor));
+            if (ui.showVertices) {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+                glUniform1f(glGetUniformLocation(shaderProgram, "pointSize"), ui.vertexSize);
+            } else if (ui.showWireframe) {           
+                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+                glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 1);
+                glUniform3fv(glGetUniformLocation(shaderProgram, "wireframeColor"), 1, glm::value_ptr(ui.wireframeColor));
             } else {          
-                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); // Renderizado normal
-                GLuint useWireframeColorLoc = glGetUniformLocation(shaderProgram, "useWireframeColor");
-                glUniform1i(useWireframeColorLoc, 0);
+                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+                glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
             }
 
-            // Pasar el estado de vertexColor al shader
-            GLuint useVertexColorLoc = glGetUniformLocation(shaderProgram, "useVertexColor");
-            glUniform1i(useVertexColorLoc, showVertices ? 1 : 0);
+            glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), ui.showVertices ? 1 : 0);
+            glUniform3fv(glGetUniformLocation(shaderProgram, "vertexColor"), 1, glm::value_ptr(ui.vertexColor));
+            glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, glm::value_ptr(models[i].color));
 
-            // Pasar el color de los vértices
-            GLuint vertexColorLoc = glGetUniformLocation(shaderProgram, "vertexColor");
-            glUniform3fv(vertexColorLoc, 1, glm::value_ptr(vertexColor));
-
-            // Pasar el color del objeto
-            GLuint objectColorLoc = glGetUniformLocation(shaderProgram, "objectColor");
-            glUniform3fv(objectColorLoc, 1, glm::value_ptr(models[i].color));
-
+            // Matrices
             glm::mat4 modelMatrix = glm::mat4(1.0f);
-            GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMatrix));
-            GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
-            glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-
-            GLuint projLoc = glGetUniformLocation(shaderProgram, "projection");
-            glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));
-            GLuint lightPosLoc = glGetUniformLocation(shaderProgram, "lightPos");
-            glUniform3fv(lightPosLoc, 1, glm::value_ptr(glm::vec3(1.2f, 1.0f, 2.0f)));
-            GLuint viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
-            glUniform3fv(viewPosLoc, 1, glm::value_ptr(glm::vec3(0.0f, 0.0f, 3.0f)));
-            GLuint lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
-            glUniform3fv(lightColorLoc, 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
+            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));
+            
+            // Luces (esto podría ir fuera del bucle para optimizar, pero mantenemos estructura)
+            glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, glm::value_ptr(glm::vec3(1.2f, 1.0f, 2.0f)));
+            glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, glm::value_ptr(glm::vec3(0.0f, 0.0f, 3.0f)));
+            glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
             
             models[i].draw(shaderProgram);
-            // Dibujar las normales
-            if (showNormals) {
-                models[i].drawDebugNormals(shaderProgram, normalsColor);
+
+            if (ui.showNormals) {
+                models[i].drawDebugNormals(shaderProgram, ui.normalsColor);
             }
-            // Dibujar el bounding box 
-            if (showBoundingBox && selectedModelIndex == i) {
-                models[selectedModelIndex].drawDebugBoundingBox(shaderProgram, boundingBoxColor);             
+            
+            if (ui.showBoundingBox && selectedModelIndex == (int)i) {
+                models[selectedModelIndex].drawDebugBoundingBox(shaderProgram, ui.boundingBoxColor);             
             }
-            // Desactivar offset después de renderizar
-            if (showWireframe) {
+
+            if (ui.showWireframe) {
                 glDisable(GL_POLYGON_OFFSET_LINE); 
             }
         }
