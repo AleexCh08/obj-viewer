@@ -1,4 +1,6 @@
 #include "SceneManager.h"
+#include "../Graphics/PickingShader.h"
+#include "../Graphics/Shader.h"
 #include <filesystem>
 #include <GLFW/glfw3.h>
 #include <Core/Camera.h>
@@ -143,42 +145,58 @@ void SceneManager::ImportModel(std::vector<Model>& models) {
 }
 
 int SceneManager::PickModel(GLFWwindow* window, const std::vector<Model>& models, const Camera& camera) {
-    double mouseX, mouseY;
-    glfwGetCursorPos(window, &mouseX, &mouseY);
+    static Shader pickingShader(pickingVertexShaderSource, pickingFragmentShaderSource);
+    
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    int winWidth, winHeight;
-    glfwGetWindowSize(window, &winWidth, &winHeight);
+    pickingShader.use();
+    pickingShader.setMat4("view", camera.getViewMatrix());
+    pickingShader.setMat4("projection", camera.getProjectionMatrix());
 
-    // Obtener el rayo
-    glm::vec3 rayOrigin = camera.eye;
-    glm::vec3 rayDirection = GetRayFromMouse(mouseX, mouseY, winWidth, winHeight, camera.getProjectionMatrix(), camera.getViewMatrix());
+    for (int i = 0; i < models.size(); ++i) {
+        float r = ((i + 1) & 0xFF) / 255.0f;
+        float g = (((i + 1) >> 8) & 0xFF) / 255.0f;
+        float b = (((i + 1) >> 16) & 0xFF) / 255.0f;
+        
+        pickingShader.setVec3("pickingColor", glm::vec3(r, g, b));
+        
+        glm::mat4 modelMatrix = glm::mat4(1.0f);
+        modelMatrix = glm::translate(modelMatrix, models[i].position);
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(models[i].rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(models[i].rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(models[i].rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+        modelMatrix = glm::scale(modelMatrix, models[i].scale);
 
-    int selectedIndex = -1;
-
-    // Verificar intersección con cada modelo
-    for (size_t i = 0; i < models.size(); ++i) {
-        glm::vec3 minBounds(std::numeric_limits<float>::max());
-        glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
-
-        // Calcular el Bounding Box TRANSFORMADO (Esto es pesado, mejor que esté aquí que en el main)
-        for (size_t j = 0; j < models[i].originalVertices.size(); j += 6) {
-            glm::vec4 position(
-                models[i].originalVertices[j],
-                models[i].originalVertices[j + 1],
-                models[i].originalVertices[j + 2],
-                1.0f
-            );
-            position = models[i].transformMatrix * position;
-            minBounds = glm::min(minBounds, glm::vec3(position));
-            maxBounds = glm::max(maxBounds, glm::vec3(position));
-        }
-
-        if (RayIntersectsBoundingBox(rayOrigin, rayDirection, minBounds, maxBounds)) {
-            selectedIndex = static_cast<int>(i);
-            break; // Seleccionamos el primero que encontremos
-        }
+        pickingShader.setMat4("model", modelMatrix);
+        
+        glBindVertexArray(models[i].VAO);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(models[i].indices.size()), GL_UNSIGNED_INT, 0);
     }
-    return selectedIndex;
+    glBindVertexArray(0);
+
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+
+    int windowWidth, windowHeight;
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+    float dpiScale = (float)width / (float)windowWidth; 
+    
+    int pixelX = static_cast<int>(xpos * dpiScale);
+    int pixelY = height - static_cast<int>(ypos * dpiScale); 
+
+    unsigned char data[4];
+    glReadPixels(pixelX, pixelY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+    int pickedID = data[0] + (data[1] * 256) + (data[2] * 256 * 256);
+
+    if (pickedID > 0 && (pickedID - 1) < models.size()) {
+        return pickedID - 1;
+    }
+
+    return -1; 
 }
 
 void SceneManager::DeleteSelectedModel(std::vector<Model>& models, int& selectedIndex) {
