@@ -1,14 +1,16 @@
 // Librerias necesarias
 #include "headers.h"
+#include "Graphics/Shader.h"
+#include "Core/Camera.h"
+#include "Scene/Model.h"
+#include "Graphics/Grid.h"
+#include "Scene/SceneManager.h"
 // Librerias estandar
 #include <iostream>
 #include <vector>
 #include <string>
 #include <filesystem>
 #include <fstream>
-
-GLuint gridVAO = 0;
-GLuint gridVBO = 0;
 
 // Función de callback para manejar cambios en el tamaño del framebuffer
 static void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
@@ -45,367 +47,6 @@ static GLFWwindow* initWindow(int width, int height, const char* title) {
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
     glEnable(GL_DEPTH_TEST);
     return window;
-}
-
-// Shaders básicos:
-// Shader de vertices
-const char* vertexShaderSource = 
-R"(
-    #version 330 core
-    layout (location = 0) in vec3 aPos;
-    layout (location = 1) in vec3 aNormal;
-
-    out vec3 FragPos;
-    out vec3 Normal;
-
-    uniform mat4 model;
-    uniform mat4 view;
-    uniform mat4 projection;
-    uniform float pointSize;
-
-    void main() {
-        FragPos = vec3(model * vec4(aPos, 1.0));
-        Normal = mat3(transpose(inverse(model))) * aNormal;
-        gl_Position = projection * view * vec4(FragPos, 1.0);    
-        gl_PointSize = pointSize;
-    }
-)";
-
-// Shader de fragmentos
-const char* fragmentShaderSource = 
-R"(
-    #version 330 core
-    out vec4 FragColor;
-
-    in vec3 FragPos;
-    in vec3 Normal;
-
-    uniform vec3 objectColor;
-    uniform vec3 vertexColor;
-    uniform vec3 wireframeColor;
-    uniform vec3 normalsColor;
-    uniform vec3 boundingBoxColor;
-
-    uniform vec3 lightColor;
-    uniform vec3 lightPos;
-    uniform vec3 viewPos;
-
-    uniform bool useVertexColor;
-    uniform bool useWireframeColor; 
-    uniform bool useNormalsColor;
-    uniform bool useBoundingBoxColor;
-
-    uniform bool isGrid;
-    uniform vec3 gridColor;
-
-    void main() {
-        if (isGrid) {
-            FragColor = vec4(gridColor, 1.0); 
-            return;
-        }
-        if (useBoundingBoxColor) {
-            FragColor = vec4(boundingBoxColor, 1.0);
-            return;
-        }
-
-        // Ambient
-        float ambientStrength = 0.1;
-        vec3 ambient = ambientStrength * lightColor;
-
-        // Diffuse
-        vec3 norm = normalize(Normal);
-        vec3 lightDir = normalize(lightPos - FragPos);
-        float diff = max(dot(norm, lightDir), 0.0);
-        vec3 diffuse = diff * lightColor;
-
-        // Specular
-        float specularStrength = 0.5;
-        vec3 viewDir = normalize(viewPos - FragPos);
-        vec3 reflectDir = reflect(-lightDir, norm);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-        vec3 specular = specularStrength * spec * lightColor;
-
-        // Determinar el color final según el modo
-        vec3 resultColor = objectColor;
-        if (useVertexColor) {
-            resultColor = vertexColor;
-        } else if (useWireframeColor) {
-            resultColor = wireframeColor; // Usar el color del alambrado
-        } else {
-            resultColor = objectColor;
-        }
-
-        vec3 result = (ambient + diffuse + specular) * resultColor;
-        vec3 result2 = useNormalsColor ? normalsColor : result;
-
-        FragColor = vec4(result2, 1.0);
-    }
-)";
-
-// Función para compilar shaders
-static GLuint compileShader(const char* source, GLenum type) {
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, nullptr);
-    glCompileShader(shader);
-
-    int success;
-    char infoLog[512];
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-        std::cerr << "Error compilando shader: " << infoLog << std::endl;
-    }
-
-    return shader;
-}
-
-// Función para crear un programa de shaders
-static GLuint createShaderProgram(const char* vertexSource, const char* fragmentSource) {
-    GLuint vertexShader = compileShader(vertexSource, GL_VERTEX_SHADER);
-    GLuint fragmentShader = compileShader(fragmentSource, GL_FRAGMENT_SHADER);
-
-    GLuint program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragmentShader);
-    glLinkProgram(program);
-
-    int success;
-    char infoLog[512];
-    glGetProgramiv(program, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(program, 512, nullptr, infoLog);
-        std::cerr << "Error enlazando programa de shaders: " << infoLog << std::endl;
-    }
-
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
-    return program;
-}
-
-// Estructura para almacenar datos del modelo
-struct Model {
-    GLuint VAO, VBO, EBO;
-
-    std::vector<float> vertices;
-    std::vector<float> originalVertices;
-    std::vector<unsigned int> indices;
-    
-    glm::mat4 rotationMatrix = glm::mat4(1.0f); // Matriz de rotación acumulativa
-    glm::mat4 translationMatrix = glm::mat4(1.0f); // Matriz de traslación acumulativa
-    glm::mat4 scaleMatrix = glm::mat4(1.0f); // Matriz de escala acumulativa
-    glm::mat4 transformMatrix = glm::mat4(1.0f); // Matriz de transformación acumulada
-    
-    glm::vec3 color;         // Color actual del modelo
-    glm::vec3 originalColor; // Color original del modelo (desde el MTL)
-
-    glm::vec3 localMinBounds; // Mínimo local del modelo (sin transformar)
-    glm::vec3 localMaxBounds; // Máximo local del modelo (sin transformar)
-    
-    float scaleX = 1.0f, scaleY = 1.0f, scaleZ = 1.0f;     // Escala en X, Y y Z
-    
-    Model() : VAO(0), VBO(0), EBO(0), color(0.7f, 0.7f, 0.7f), originalColor(0.7f, 0.7f, 0.7f), localMinBounds(0.0f), localMaxBounds(0.0f) {}
-
-    void setupModel() {
-        originalVertices = vertices;
-
-        glGenVertexArrays(1, &VAO);
-        glGenBuffers(1, &VBO);
-        glGenBuffers(1, &EBO);
-
-        glBindVertexArray(VAO);
-
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
-
-        glBindVertexArray(0);
-    }
-
-    void updateTransformMatrix() {
-        transformMatrix = translationMatrix * rotationMatrix * scaleMatrix;
-    }
-
-    // Aplicar la matriz de transformación a los vértices originales
-    void applyTransformations() {    
-        for (size_t i = 0; i < originalVertices.size(); i += 6) {
-            glm::vec4 position(
-                originalVertices[i],
-                originalVertices[i + 1],
-                originalVertices[i + 2],
-                1.0f
-            );
-
-            position = transformMatrix * position;
-
-            vertices[i] = position.x;
-            vertices[i + 1] = position.y;
-            vertices[i + 2] = position.z;
-        }       
-    }
-
-    void draw(GLuint shaderProgram) const {
-        glUseProgram(shaderProgram);
-
-        GLuint colorLoc = glGetUniformLocation(shaderProgram, "objectColor");
-        glUniform3fv(colorLoc, 1, &color[0]);
-
-        GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(transformMatrix));
-
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
-    }
-};
-
-// Función para normalizar un modelo dentro de un cubo unitario
-static void normalizeModel(Model& model) {
-    glm::vec3 minBounds(std::numeric_limits<float>::max());
-    glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
-
-    for (size_t i = 0; i < model.vertices.size(); i += 6) {
-        glm::vec3 pos(model.vertices[i], model.vertices[i + 1], model.vertices[i + 2]);
-        minBounds = glm::min(minBounds, pos);
-        maxBounds = glm::max(maxBounds, pos);
-    }
-
-    glm::vec3 size = maxBounds - minBounds;
-    float scale = 1.0f / std::max(size.x, std::max(size.y, size.z)); // Cambio realizado
-    glm::vec3 center = (minBounds + maxBounds) * 0.5f;
-
-    for (size_t i = 0; i < model.vertices.size(); i += 6) {
-        model.vertices[i + 0] = (model.vertices[i + 0] - center.x) * scale;
-        model.vertices[i + 1] = (model.vertices[i + 1] - center.y) * scale;
-        model.vertices[i + 2] = (model.vertices[i + 2] - center.z) * scale;
-    }
-}
-
-// Función para procesar el modelo cargado
-static Model processModel(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes, const std::vector<tinyobj::material_t>& materials, bool normalize) {
-    Model model;
-
-    // Paso 1: Crear un mapa para calcular normales por vértice
-    struct Vertex {
-        glm::vec3 position;
-        glm::vec3 normal;
-    };
-
-    std::vector<Vertex> vertices;
-    std::vector<unsigned int> indices;
-
-    // Paso 2: Procesar cada triángulo
-    for (const auto& shape : shapes) {
-        for (size_t i = 0; i < shape.mesh.indices.size(); i += 3) {
-            unsigned int idx0 = shape.mesh.indices[i + 0].vertex_index;
-            unsigned int idx1 = shape.mesh.indices[i + 1].vertex_index;
-            unsigned int idx2 = shape.mesh.indices[i + 2].vertex_index;
-
-            glm::vec3 v0(
-                attrib.vertices[3 * idx0 + 0],
-                attrib.vertices[3 * idx0 + 1],
-                attrib.vertices[3 * idx0 + 2]
-            );
-            glm::vec3 v1(
-                attrib.vertices[3 * idx1 + 0],
-                attrib.vertices[3 * idx1 + 1],
-                attrib.vertices[3 * idx1 + 2]
-            );
-            glm::vec3 v2(
-                attrib.vertices[3 * idx2 + 0],
-                attrib.vertices[3 * idx2 + 1],
-                attrib.vertices[3 * idx2 + 2]
-            );
-
-            // Calcular la normal del triángulo
-            glm::vec3 edge1 = v1 - v0;
-            glm::vec3 edge2 = v2 - v0;
-            glm::vec3 triangleNormal = glm::normalize(glm::cross(edge1, edge2));
-
-            // Agregar vértices y acumular normales
-            for (int j = 0; j < 3; ++j) {
-                unsigned int idx = shape.mesh.indices[i + j].vertex_index;
-
-                glm::vec3 pos(
-                    attrib.vertices[3 * idx + 0],
-                    attrib.vertices[3 * idx + 1],
-                    attrib.vertices[3 * idx + 2]
-                );
-
-                if (vertices.size() <= idx || vertices[idx].position != pos) {
-                    // Crear un nuevo vértice si es necesario
-                    Vertex vertex = { pos, triangleNormal };
-                    vertices.push_back(vertex);
-                    indices.push_back(static_cast<unsigned int>(vertices.size() - 1));
-                }
-                else {
-                    // Acumular la normal si el vértice ya existe
-                    vertices[idx].normal += triangleNormal;
-                    indices.push_back(idx);
-                }
-            }
-        }
-    }
-
-    // Paso 3: Normalizar las normales por vértice
-    for (auto& vertex : vertices) {
-        vertex.normal = glm::normalize(vertex.normal);
-    }
-
-    // Paso 4: Convertir a formato de OpenGL
-    for (const auto& vertex : vertices) {
-        model.vertices.push_back(vertex.position.x);
-        model.vertices.push_back(vertex.position.y);
-        model.vertices.push_back(vertex.position.z);
-
-        model.vertices.push_back(vertex.normal.x);
-        model.vertices.push_back(vertex.normal.y);
-        model.vertices.push_back(vertex.normal.z);
-    }
-
-    model.indices = indices;
-
-    // Paso 5: Procesar materiales
-    if (!materials.empty()) {
-        model.color = glm::vec3(materials[0].diffuse[0], materials[0].diffuse[1], materials[0].diffuse[2]);
-        model.originalColor = model.color; // Guardar el color original
-    }
-    else {
-        model.color = glm::vec3(0.7f, 0.7f, 0.7f);
-        model.originalColor = model.color; // Guardar color gris por defecto
-        std::cerr << "No se encontro un archivo MTL asociado. (Gris por defecto)" << std::endl;
-    }
-
-    // Paso 6: Normalizar y configurar el modelo
-    if (normalize) {
-        normalizeModel(model);
-    }  
-    model.setupModel();
-
-    // Calcular AABB local
-    glm::vec3 minBounds(FLT_MAX);
-    glm::vec3 maxBounds(-FLT_MAX);
-    for (size_t i = 0; i < model.originalVertices.size(); i += 6) {
-        glm::vec3 pos(
-            model.originalVertices[i],
-            model.originalVertices[i + 1],
-            model.originalVertices[i + 2]
-        );
-        minBounds = glm::min(minBounds, pos);
-        maxBounds = glm::max(maxBounds, pos);
-    }
-    model.localMinBounds = minBounds;
-    model.localMaxBounds = maxBounds;
-    
-    return model;
 }
 
 // Función para trasladar un modelo
@@ -585,88 +226,6 @@ static void handleSceneAndCamera(GLFWwindow* window, glm::mat4& viewMatrix, glm:
     }
 }
 
-// Eliminar todos los modelos de la escena
-static void clearScene(std::vector<Model>& models) {
-    for (auto& model : models) {
-        glDeleteBuffers(1, &model.VBO);
-        glDeleteBuffers(1, &model.EBO);
-        glDeleteVertexArrays(1, &model.VAO);
-    }
-    models.clear();
-    std::cout << "Escena eliminada correctamente.\n";
-}
-
-
-// Guardar la escena en un archivo de texto
-static void saveScene(const std::string& filename, const std::vector<Model>& models) {
-    std::ofstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error: No se pudo abrir el archivo para guardar la escena.\n";
-        return;
-    }
-
-    file << "# Archivo de escena en formato .OBJ\n";
-    file << "# Formato: vertices(v) normales(vn) caras(f)\n";
-
-    size_t vertexOffset = 0; // Desplazamiento para los índices de vértices
-
-    for (const auto& model : models) {
-        file << "o " << "\n";
-        // Guardar vértices
-        for (size_t i = 0; i < model.vertices.size(); i += 6) {
-            file << "v " << model.vertices[i] << " " << model.vertices[i + 1] << " " << model.vertices[i + 2] << "\n";
-        }
-
-        // Guardar normales
-        for (size_t i = 0; i < model.vertices.size(); i += 6) {
-            file << "vn " << model.vertices[i + 3] << " " << model.vertices[i + 4] << " " << model.vertices[i + 5] << "\n";
-        }
-
-        // Guardar caras (índices)
-        for (size_t i = 0; i < model.indices.size(); i += 3) {
-            file << "f "
-                << static_cast<size_t>(model.indices[i]) + 1 + vertexOffset << "//" << static_cast<size_t>(model.indices[i]) + 1 + vertexOffset << " "
-                << static_cast<size_t>(model.indices[i + 1]) + 1 + vertexOffset << "//" << static_cast<size_t>(model.indices[i + 1]) + 1 + vertexOffset << " "
-                << static_cast<size_t>(model.indices[i + 2]) + 1 + vertexOffset << "//" << static_cast<size_t>(model.indices[i + 2]) + 1 + vertexOffset << "\n";
-        }
-
-        vertexOffset += model.vertices.size() / 6; // Actualizar el desplazamiento para el siguiente modelo      
-    }
-
-    file.close();
-    std::cout << "Escena guardada en " << filename << "\n";
-}
-
-// Cargar la escena de un archivo de texto
-static void loadScene(const std::string& filename, std::vector<Model>& models) {
-    clearScene(models); // Limpiar la escena actual
-    
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error: No se pudo abrir el archivo para cargar la escena.\n";
-        return;
-    }
-
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warn, err;
-
-    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename.c_str())) {
-        std::cerr << "Error cargando el archivo OBJ: " << err << std::endl;
-        return;
-    }
-
-    // Procesar cada forma (shape) como un modelo independiente
-    for (const auto& shape : shapes) {
-        Model newModel = processModel(attrib, { shape }, materials, false); // Procesar cada shape como un modelo
-        models.push_back(newModel); // Añadir el modelo a la lista        
-    }
-
-    file.close();
-    std::cout << "Escena cargada desde " << filename << "\n";
-}
-
 // Cambiar el color de fondo
 static void changeBackgroundColor(GLFWwindow* window, glm::vec3& bgColor) {
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
@@ -804,167 +363,101 @@ static void drawBoundingBox(const Model& model, GLuint shaderProgram, const glm:
     glUniform1i(glGetUniformLocation(shaderProgram, "useBoundingBoxColor"), false);
 }
 
-// Función para obtener el rayo desde la posición del ratón
-static glm::vec3 getRayFromMouse(double mouseX, double mouseY, int windowWidth, int windowHeight, const glm::mat4& projection, const glm::mat4& view) {
-    float x = (2.0f * static_cast<float>(mouseX)) / windowWidth - 1.0f;
-    float y = 1.0f - (2.0f * static_cast<float>(mouseY)) / windowHeight;
-    float z = 1.0f; 
+// Shaders básicos:
+// Shader de vertices
+const char* vertexShaderSource = 
+R"(
+    #version 330 core
+    layout (location = 0) in vec3 aPos;
+    layout (location = 1) in vec3 aNormal;
 
-    // Coordenadas del rayo en el espacio del clip
-    glm::vec4 rayClip(x, y, -1.0f, 1.0f);
+    out vec3 FragPos;
+    out vec3 Normal;
 
-    // Convertir el rayo al espacio del ojo (vista)
-    glm::vec4 rayEye = glm::inverse(projection) * rayClip;
-    rayEye = glm::vec4(rayEye.x, rayEye.y, -1.0f, 0.0f);
+    uniform mat4 model;
+    uniform mat4 view;
+    uniform mat4 projection;
+    uniform float pointSize;
 
-    // Convertir el rayo al espacio del mundo
-    glm::vec3 rayWorld = glm::vec3(glm::inverse(view) * rayEye);
-    rayWorld = glm::normalize(rayWorld);
-
-    return rayWorld;
-}
-
-// Función para detectar colisión entre un rayo y un bounding box
-static bool rayIntersectsBoundingBox(const glm::vec3& rayOrigin, const glm::vec3& rayDirection, const glm::vec3& minBounds, const glm::vec3& maxBounds) {
-    float tmin = (minBounds.x - rayOrigin.x) / rayDirection.x;
-    float tmax = (maxBounds.x - rayOrigin.x) / rayDirection.x;
-
-    if (tmin > tmax) std::swap(tmin, tmax);
-
-    float tymin = (minBounds.y - rayOrigin.y) / rayDirection.y;
-    float tymax = (maxBounds.y - rayOrigin.y) / rayDirection.y;
-
-    if (tymin > tymax) std::swap(tymin, tymax);
-
-    if ((tmin > tymax) || (tymin > tmax))
-        return false;
-
-    if (tymin > tmin)
-        tmin = tymin;
-
-    if (tymax < tmax)
-        tmax = tymax;
-
-    float tzmin = (minBounds.z - rayOrigin.z) / rayDirection.z;
-    float tzmax = (maxBounds.z - rayOrigin.z) / rayDirection.z;
-
-    if (tzmin > tzmax) std::swap(tzmin, tzmax);
-
-    if ((tmin > tzmax) || (tzmin > tmax))
-        return false;
-
-    return true;
-}
-
-// Inicializar el mallado con divisiones y subdivisiones
-void initGrid(float size, int divisions, int subDivisions) {
-    // Generar vértices de la cuadrícula
-    std::vector<float> vertices;
-    float halfSize = size / 2.0f;
-    float step = size / divisions;
-    float subStep = step / subDivisions;
-
-    // Líneas de las divisiones principales
-    for (int i = 0; i <= divisions; ++i) {
-        float coord = -halfSize + i * step;
-
-        // Líneas paralelas al eje X
-        vertices.push_back(coord); vertices.push_back(-0.5f); vertices.push_back(-halfSize);
-        vertices.push_back(coord); vertices.push_back(-0.5f); vertices.push_back(halfSize);
-
-        // Líneas paralelas al eje Z
-        vertices.push_back(-halfSize); vertices.push_back(-0.5f); vertices.push_back(coord);
-        vertices.push_back(halfSize); vertices.push_back(-0.5f); vertices.push_back(coord);
+    void main() {
+        FragPos = vec3(model * vec4(aPos, 1.0));
+        Normal = mat3(transpose(inverse(model))) * aNormal;
+        gl_Position = projection * view * vec4(FragPos, 1.0);    
+        gl_PointSize = pointSize;
     }
+)";
 
-    // Líneas de las subdivisiones
-    for (int i = 0; i < divisions; ++i) {
-        for (int j = 1; j < subDivisions; ++j) {
-            float coord = -halfSize + i * step + j * subStep;
+// Shader de fragmentos
+const char* fragmentShaderSource = 
+R"(
+    #version 330 core
+    out vec4 FragColor;
 
-            // Líneas paralelas al eje X
-            vertices.push_back(coord); vertices.push_back(-0.5f); vertices.push_back(-halfSize);
-            vertices.push_back(coord); vertices.push_back(-0.5f); vertices.push_back(halfSize);
+    in vec3 FragPos;
+    in vec3 Normal;
 
-            // Líneas paralelas al eje Z
-            vertices.push_back(-halfSize); vertices.push_back(-0.5f); vertices.push_back(coord);
-            vertices.push_back(halfSize); vertices.push_back(-0.5f); vertices.push_back(coord);
+    uniform vec3 objectColor;
+    uniform vec3 vertexColor;
+    uniform vec3 wireframeColor;
+    uniform vec3 normalsColor;
+    uniform vec3 boundingBoxColor;
+
+    uniform vec3 lightColor;
+    uniform vec3 lightPos;
+    uniform vec3 viewPos;
+
+    uniform bool useVertexColor;
+    uniform bool useWireframeColor; 
+    uniform bool useNormalsColor;
+    uniform bool useBoundingBoxColor;
+
+    uniform bool isGrid;
+    uniform vec3 gridColor;
+
+    void main() {
+        if (isGrid) {
+            FragColor = vec4(gridColor, 1.0); 
+            return;
         }
+        if (useBoundingBoxColor) {
+            FragColor = vec4(boundingBoxColor, 1.0);
+            return;
+        }
+
+        // Ambient
+        float ambientStrength = 0.1;
+        vec3 ambient = ambientStrength * lightColor;
+
+        // Diffuse
+        vec3 norm = normalize(Normal);
+        vec3 lightDir = normalize(lightPos - FragPos);
+        float diff = max(dot(norm, lightDir), 0.0);
+        vec3 diffuse = diff * lightColor;
+
+        // Specular
+        float specularStrength = 0.5;
+        vec3 viewDir = normalize(viewPos - FragPos);
+        vec3 reflectDir = reflect(-lightDir, norm);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+        vec3 specular = specularStrength * spec * lightColor;
+
+        // Determinar el color final según el modo
+        vec3 resultColor = objectColor;
+        if (useVertexColor) {
+            resultColor = vertexColor;
+        } else if (useWireframeColor) {
+            resultColor = wireframeColor; // Usar el color del alambrado
+        } else {
+            resultColor = objectColor;
+        }
+
+        vec3 result = (ambient + diffuse + specular) * resultColor;
+        vec3 result2 = useNormalsColor ? normalsColor : result;
+
+        FragColor = vec4(result2, 1.0);
     }
+)";
 
-    // Crear y configurar el VAO y VBO
-    glGenVertexArrays(1, &gridVAO);
-    glGenBuffers(1, &gridVBO);
-
-    glBindVertexArray(gridVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glBindVertexArray(0);
-}
-
-// Renderizar el mallado
-void renderGrid(GLuint shaderProgram, const glm::mat4& view, const glm::mat4& projection, const glm::vec3& color) {
-    glUseProgram(shaderProgram);
-
-    // Configurar uniforms
-    GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
-    GLuint projLoc = glGetUniformLocation(shaderProgram, "projection");
-    GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
-    GLuint colorLoc = glGetUniformLocation(shaderProgram, "gridColor");
-    GLuint isGridLoc = glGetUniformLocation(shaderProgram, "isGrid");
-
-    if (viewLoc != -1) glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    if (projLoc != -1) glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-    if (modelLoc != -1) glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
-    if (colorLoc != -1) glUniform3fv(colorLoc, 1, glm::value_ptr(color));
-    if (isGridLoc != -1) glUniform1i(isGridLoc, 1);
-
-    // Dibujar las divisiones principales (más gruesas)
-    glLineWidth(2.5f); 
-    glBindVertexArray(gridVAO);
-    glDrawArrays(GL_LINES, 0, 4 * (20 + 1)); // Dibujar las divisiones principales
-    glBindVertexArray(0);
-
-    // Dibujar las subdivisiones (más delgadas)
-    glLineWidth(0.5f); 
-    glBindVertexArray(gridVAO);
-    glDrawArrays(GL_LINES, 4 * (20 + 1), 4 * 20 * (5 - 1)); // Dibujar las subdivisiones
-    glBindVertexArray(0);
-    if (isGridLoc != -1) glUniform1i(isGridLoc, 0);
-}
-
-// Detectar colisón con el mallado
-void checkCollisionWithPlatform(Model& model, float platformHeight) {
-    // Calcular las 8 esquinas del AABB local
-    glm::vec3 corners[8] = {
-        model.localMinBounds,
-        {model.localMinBounds.x, model.localMinBounds.y, model.localMaxBounds.z},
-        {model.localMinBounds.x, model.localMaxBounds.y, model.localMinBounds.z},
-        {model.localMinBounds.x, model.localMaxBounds.y, model.localMaxBounds.z},
-        {model.localMaxBounds.x, model.localMinBounds.y, model.localMinBounds.z},
-        {model.localMaxBounds.x, model.localMinBounds.y, model.localMaxBounds.z},
-        {model.localMaxBounds.x, model.localMaxBounds.y, model.localMinBounds.z},
-        model.localMaxBounds
-    };
-
-    // Transformar las esquinas y encontrar el mínimo Y
-    float minY = FLT_MAX;
-    for (const auto& corner : corners) {
-        glm::vec4 transformed = model.transformMatrix * glm::vec4(corner, 1.0f);
-        minY = glm::min(minY, transformed.y);
-    }
-
-    // Detectar colisión
-    if (minY < platformHeight) {
-        float offset = platformHeight - minY;
-        model.translationMatrix = glm::translate(model.translationMatrix, glm::vec3(0.0f, offset, 0.0f));
-        model.updateTransformMatrix();
-    }
-}
 
 // Funcion principal para la ejecucion del programa
 int main() {
@@ -972,19 +465,15 @@ int main() {
     GLFWwindow* window = initWindow(800, 600, "Cargar OBJ");
     if (!window) return -1;
 
-    GLuint shaderProgram = createShaderProgram(vertexShaderSource, fragmentShaderSource);
+    Shader shader(vertexShaderSource, fragmentShaderSource);
+    GLuint shaderProgram = shader.ID;
+    Camera camera(800, 600, glm::vec3(0.0f, 1.5f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+
+
     glm::vec3 bgColor(0.46f, 0.46f, 0.46f); // Color de fondo inicial
 
     std::vector<Model> models; // Vector para almacenar modelos cargados
     int selectedModelIndex = -1; // Índice del modelo seleccionado
-
-    glm::vec3 eye(0.0f, 1.5f, 3.0f); // Posición inicial de la cámara
-    glm::vec3 up(0.0f, 1.0f, 0.0f);  // Vector hacia arriba
-    glm::vec3 target(0.0f, 0.0f, 0.0f); // Punto hacia el que mira la cámara
-
-    // Configuración de cámara
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
-    glm::mat4 viewMatrix = glm::lookAt(eye, target, up);
 
     glm::vec2 lastMousePos(0.0f, 0.0f); // Obtener la posición del cursor
     
@@ -1020,7 +509,7 @@ int main() {
 
     glEnable(GL_PROGRAM_POINT_SIZE);
     // Renderiza la cuadrícula antes de los modelos
-    initGrid(20.0f, 20, 5);
+    Grid grid(20.0f, 20, 5);
     // Bucle principal
     while (!glfwWindowShouldClose(window)) {
         // Configurar Dear ImGui
@@ -1125,7 +614,7 @@ int main() {
                 std::string baseDir = objPath.parent_path().string() + "/";
 
                 if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath, baseDir.c_str())) {                   
-                    Model newModel = processModel(attrib, shapes, materials, true);
+                    Model newModel = Model::Process(attrib, shapes, materials, true);
                     models.push_back(newModel); // Añadir modelo a la lista                    
                     std::filesystem::path path(filepath);
                     std::cout << "Modelo cargado: " << path.filename() << std::endl;
@@ -1145,8 +634,8 @@ int main() {
             glfwGetWindowSize(window, &winWidth, &winHeight);
 
             // Obtener el rayo desde el clic del ratón
-            glm::vec3 rayOrigin = eye; // La posición de la cámara es el origen del rayo
-            glm::vec3 rayDirection = getRayFromMouse(mouseX, mouseY, winWidth, winHeight, projection, viewMatrix);
+            glm::vec3 rayOrigin = camera.eye; // La posición de la cámara es el origen del rayo
+            glm::vec3 rayDirection = SceneManager::GetRayFromMouse(mouseX, mouseY, winWidth, winHeight, camera.getProjectionMatrix(), camera.getViewMatrix());
 
             // Verificar si el rayo intersecta con algún objeto
             selectedModelIndex = -1;
@@ -1171,7 +660,7 @@ int main() {
                 }
 
                 // Verificar colisión entre el rayo y el bounding box
-                if (rayIntersectsBoundingBox(rayOrigin, rayDirection, minBounds, maxBounds)) {
+                if (SceneManager::RayIntersectsBoundingBox(rayOrigin, rayDirection, minBounds, maxBounds)) {
                     selectedModelIndex = static_cast<int>(i);
                     break;
                 }
@@ -1190,7 +679,7 @@ int main() {
 
         // Manejo de rotación de escena o transformaciones de objeto
         if (selectedModelIndex == -1) {
-            handleSceneAndCamera(window, viewMatrix, eye, target, up, lastMousePos, 0.4f, 0.005f);           
+            camera.handleInput(window);           
         } else {     
             handleModelTranslation(window, models[selectedModelIndex]);
             handleModelScaling(window, models[selectedModelIndex]);
@@ -1199,10 +688,10 @@ int main() {
   
         // Verificar colisión con la plataforma para todos los modelos
         for (auto& model : models) {
-            checkCollisionWithPlatform(model, -0.5f);
+            SceneManager::CheckCollisionWithPlatform(model, -0.5f);
         }
         // Renderizar la cuadrícula
-        renderGrid(shaderProgram, viewMatrix, projection, glm::vec3(0.7f, 0.7f, 0.7f));
+        grid.draw(shaderProgram, camera.getViewMatrix(), camera.getProjectionMatrix(), glm::vec3(0.7f, 0.7f, 0.7f));
 
         // Renderizar todos los modelos cargados
         for (size_t i = 0; i < models.size(); ++i) {
@@ -1238,10 +727,10 @@ int main() {
             GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMatrix));
             GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
-            glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(viewMatrix));
+            glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
 
             GLuint projLoc = glGetUniformLocation(shaderProgram, "projection");
-            glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+            glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));
             GLuint lightPosLoc = glGetUniformLocation(shaderProgram, "lightPos");
             glUniform3fv(lightPosLoc, 1, glm::value_ptr(glm::vec3(1.2f, 1.0f, 2.0f)));
             GLuint viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
@@ -1269,15 +758,15 @@ int main() {
             for (auto& model : models) {
                 model.applyTransformations();
             }
-            saveScene("scene.txt", models);
+            SceneManager::Save("scene.txt", models);
         }
         if (glfwGetKey(window, GLFW_KEY_N) == GLFW_PRESS) {
             selectedModelIndex = -1;
-            loadScene("scene.txt", models);
+            SceneManager::Load("scene.txt", models);
         }
         if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
             selectedModelIndex = -1;
-            clearScene(models);
+            SceneManager::Clear(models);
         }
 
         // Cerrar la ventana
