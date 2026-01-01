@@ -133,41 +133,48 @@ int main() {
         grid.draw(shaderProgram, camera.getViewMatrix(), camera.getProjectionMatrix(), glm::vec3(0.7f, 0.7f, 0.7f));
 
         // Renderizar todos los modelos
+        glUseProgram(shaderProgram);
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));       
+        glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, glm::value_ptr(glm::vec3(1.2f, 1.0f, 2.0f)));
+        glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, glm::value_ptr(camera.eye)); 
+        glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+
+        if (ui.showVertices) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+            glUniform1f(glGetUniformLocation(shaderProgram, "pointSize"), ui.vertexSize);
+            glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 1);
+            glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
+        } else if (ui.showWireframe) {           
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 1);
+            glUniform3fv(glGetUniformLocation(shaderProgram, "wireframeColor"), 1, glm::value_ptr(ui.wireframeColor));
+            glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 0);
+        } else {          
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 0);
+            glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
+        }
+
         for (size_t i = 0; i < models.size(); ++i) {
-            if (ui.showVertices) {
-                glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
-                glUniform1f(glGetUniformLocation(shaderProgram, "pointSize"), ui.vertexSize);
-            } else if (ui.showWireframe) {           
-                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-                glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 1);
-                glUniform3fv(glGetUniformLocation(shaderProgram, "wireframeColor"), 1, glm::value_ptr(ui.wireframeColor));
-            } else {          
-                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-                glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
-            }
-
-            glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), ui.showVertices ? 1 : 0);
-            glUniform3fv(glGetUniformLocation(shaderProgram, "vertexColor"), 1, glm::value_ptr(ui.vertexColor));
             glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, glm::value_ptr(models[i].color));
-
-            glm::mat4 modelMatrix = glm::mat4(1.0f);
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));
-            
-            glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, glm::value_ptr(glm::vec3(1.2f, 1.0f, 2.0f)));
-            glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, glm::value_ptr(glm::vec3(0.0f, 0.0f, 3.0f)));
-            glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(models[i].transformMatrix));
             
             models[i].draw(shaderProgram);
-
-            if (ui.showNormals) models[i].drawDebugNormals(shaderProgram, ui.normalsColor);
-            if (ui.showBoundingBox && selectedModelIndex == (int)i) models[selectedModelIndex].drawDebugBoundingBox(shaderProgram, ui.boundingBoxColor);
-            if (ui.showWireframe) glDisable(GL_POLYGON_OFFSET_LINE); 
+            if (ui.showNormals) {
+                models[i].drawDebugNormals(shaderProgram, ui.normalsColor);
+            }
+            
+            if (ui.showBoundingBox && selectedModelIndex == (int)i) {
+                models[selectedModelIndex].drawDebugBoundingBox(shaderProgram, ui.boundingBoxColor);             
+            }
+        }
+        
+        if (ui.showWireframe || ui.showVertices) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
 
         // Atajos del teclado  
-        // Detectar si la tecla Control está presionada (Izquierda o Derecha)
         bool ctrlPressed = glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || 
                            glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS;
 
