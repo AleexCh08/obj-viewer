@@ -24,6 +24,14 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
     }
 }
 
+void FramebufferSizeCallback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
+    
+    if (globalCameraPtr) {
+        globalCameraPtr->updateScreenSize(width, height);
+    }
+}
+
 // Funcion principal para la ejecucion del programa
 int main() {
     int screenWidth, screenHeight;
@@ -31,7 +39,9 @@ int main() {
     GLFWwindow* window = Window::Init(screenWidth, screenHeight, "ViewerOBJ Pro");
     if (!window) return -1;
 
+    glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
     glfwGetFramebufferSize(window, &screenWidth, &screenHeight);
+    FramebufferSizeCallback(window, screenWidth, screenHeight);
 
     Shader shader(vertexShaderSource, fragmentShaderSource);
     GLuint shaderProgram = shader.ID;
