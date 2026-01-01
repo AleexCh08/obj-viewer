@@ -132,9 +132,6 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             ImGui::MenuItem("Panel de Propiedades", NULL, &state.showPropertiesPanel); 
             ImGui::EndMenu();
         }
-        // Mostrar FPS a la derecha de la barra
-        ImGui::SameLine(ImGui::GetWindowWidth() - 100);
-        ImGui::Text("FPS: %.1f", fps);
         ImGui::EndMainMenuBar();
     }
 
@@ -230,7 +227,7 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
 
     // 3. Ventana Flotante de FPS 
     if (state.showFPS) {
-        ImGui::SetNextWindowBgAlpha(0.35f); 
+        ImGui::SetNextWindowBgAlpha(0.65f); 
         ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 90, 30), ImGuiCond_Always);
         ImGui::Begin("Stats", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav);
         ImGui::Text("%.1f FPS", fps);
@@ -250,46 +247,59 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
         ImGui::Begin("Transform Bar", NULL, flags);
 
+        if (currentModel.isLight) {
+            ImGui::TextColored(ImVec4(1, 1, 0, 1), "FUENTE DE LUZ SELECCIONADA");
+            ImGui::Separator();
 
-        ImGui::TextColored(ImVec4(1, 0.8f, 0, 1), "OBJETO SELECCIONADO: ID %d", selectedModelIndex);
-        ImGui::Separator();
-        ImGui::Columns(4, "TransformCols", false); 
+            ImGui::Columns(2, "LightCols", false);
+            ImGui::Text("Posición de la Luz");
+            if (DrawVec3Control("PosLight", currentModel.position, 0.0f, 0.02f)) {
+                currentModel.updateTransformMatrix();
+            }
+            ImGui::NextColumn();
+            ImGui::Text("Color de la Luz");
+            ImGui::SetNextItemWidth(-1);
+            ImGui::ColorEdit3("##LightColor", (float*)&currentModel.color, ImGuiColorEditFlags_NoInputs);
+            
+        } else {
+            ImGui::TextColored(ImVec4(1, 0.8f, 0, 1), "OBJETO SELECCIONADO: ID %d", selectedModelIndex);
+            ImGui::Separator();
+            ImGui::Columns(4, "TransformCols", false); 
 
-        // Posición
-        ImGui::Text("Posición");
-        if (DrawVec3Control("Pos", currentModel.position, 0.0f, 0.02f)) {
-            currentModel.updateTransformMatrix();
-        }
-        ImGui::NextColumn();
+            // Posición
+            ImGui::Text("Posición");
+            if (DrawVec3Control("Pos", currentModel.position, 0.0f, 0.02f)) {
+                currentModel.updateTransformMatrix();
+            }
+            ImGui::NextColumn();
 
-        // Rotación
-        ImGui::Text("Rotación");
-        if (DrawVec3Control("Rot", currentModel.rotation, 0.0f, 0.5f)) {
-            currentModel.updateTransformMatrix();
-        }
-        ImGui::NextColumn();
+            // Rotación
+            ImGui::Text("Rotación");
+            if (DrawVec3Control("Rot", currentModel.rotation, 0.0f, 0.5f)) {
+                currentModel.updateTransformMatrix();
+            }
+            ImGui::NextColumn();
 
-        // Escala
-        ImGui::Text("Escala");
-        if (DrawVec3Control("Scl", currentModel.scale, 1.0f, 0.02f)) {
-            // Evitar escala 0 o negativa
-            if(currentModel.scale.x < 0.01f) currentModel.scale.x = 0.01f;
-            if(currentModel.scale.y < 0.01f) currentModel.scale.y = 0.01f;
-            if(currentModel.scale.z < 0.01f) currentModel.scale.z = 0.01f;
-            currentModel.updateTransformMatrix();
-        }
-        ImGui::NextColumn();
+            // Escala
+            ImGui::Text("Escala");
+            if (DrawVec3Control("Scl", currentModel.scale, 1.0f, 0.02f)) {
+                if(currentModel.scale.x < 0.01f) currentModel.scale.x = 0.01f;
+                if(currentModel.scale.y < 0.01f) currentModel.scale.y = 0.01f;
+                if(currentModel.scale.z < 0.01f) currentModel.scale.z = 0.01f;
+                currentModel.updateTransformMatrix();
+            }
+            ImGui::NextColumn();
 
-        ImGui::Dummy(ImVec2(0, 15)); 
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
-        if (ImGui::Button("ELIMINAR", ImVec2(-1, 40))) {
-            SceneManager::DeleteSelectedModel(models, selectedModelIndex);
-        }
-        ImGui::PopStyleColor(2);
-
+            ImGui::Dummy(ImVec2(0, 15)); 
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+            if (ImGui::Button("ELIMINAR", ImVec2(-1, 40))) {
+                SceneManager::DeleteSelectedModel(models, selectedModelIndex);
+            }
+            ImGui::PopStyleColor(2);
+        }   
         ImGui::EndColumns();
-        ImGui::End();
+        ImGui::End();   
     }
 
     // Renderizar al final

@@ -40,6 +40,8 @@ R"(
     uniform vec3 lightPos;
     uniform vec3 viewPos;
 
+    uniform int isLightSource;
+
     uniform bool useVertexColor;
     uniform bool useWireframeColor; 
     uniform bool useNormalsColor;
@@ -49,6 +51,11 @@ R"(
     uniform vec3 gridColor;
 
     void main() {
+        if (isLightSource == 1) {
+            FragColor = vec4(objectColor, 1.0); 
+            return; 
+        }
+
         if (isGrid) {
             FragColor = vec4(gridColor, 1.0); 
             return;

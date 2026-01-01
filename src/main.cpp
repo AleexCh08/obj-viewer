@@ -26,12 +26,16 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 
 // Funcion principal para la ejecucion del programa
 int main() {
-    GLFWwindow* window = Window::Init(1024, 768, "ViewerOBJ Pro");
+    int screenWidth, screenHeight;
+    
+    GLFWwindow* window = Window::Init(screenWidth, screenHeight, "ViewerOBJ Pro");
     if (!window) return -1;
+
+    glfwGetFramebufferSize(window, &screenWidth, &screenHeight);
 
     Shader shader(vertexShaderSource, fragmentShaderSource);
     GLuint shaderProgram = shader.ID;
-    Camera camera(1024, 768, glm::vec3(0.0f, 1.5f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    Camera camera(screenWidth, screenHeight, glm::vec3(0.0f, 1.5f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     globalCameraPtr = &camera;
     UIState ui;
     UIManager::Init(window); 
@@ -39,7 +43,13 @@ int main() {
     glfwSetScrollCallback(window, ScrollCallback);
 
     glm::vec3 bgColor(0.46f, 0.46f, 0.46f); // Color de fondo inicial
-    std::vector<Model> models; // Vector para almacenar modelos cargados
+    std::vector<Model> models; 
+    SceneManager::AddLight(models);
+    if (!models.empty()) {
+        models[0].position = glm::vec3(1.2f, 1.0f, 2.0f);
+        models[0].updateTransformMatrix(); 
+    }
+
     int selectedModelIndex = -1; // Índice del modelo seleccionado
     glm::vec2 lastMousePos(0.0f, 0.0f); // Obtener la posición del cursor
       
@@ -100,9 +110,7 @@ int main() {
             isMousePressed = true;
             double x, y; glfwGetCursorPos(window, &x, &y);
             mousePressStart = glm::vec2(x, y);
-        }
-        
-        else if (!isPressedNow && isMousePressed) {
+        } else if (!isPressedNow && isMousePressed) {
             isMousePressed = false;
             
             double x, y; glfwGetCursorPos(window, &x, &y);
@@ -118,17 +126,12 @@ int main() {
                 } else {
                     selectedModelIndex = -1; 
                 }
-
-                for (size_t i = 0; i < models.size(); ++i) {
-                    if ((int)i == selectedModelIndex) {
-                        models[i].color = glm::vec3(1.0f, 0.0f, 0.0f);
-                    } else if(!ui.enableColorChange) {
-                        models[i].color = models[i].originalColor;
-                    }
-                }
+                glClearColor(bgColor.r, bgColor.g, bgColor.b, 1.0f); 
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+              
             }
         }
-
+        
         // Manejo de cámara y transformación
         if (selectedModelIndex == -1) {
             camera.handleInput(window);           
@@ -142,16 +145,25 @@ int main() {
         }
 
         // Renderizar la cuadrícula
+        glUniform1i(glGetUniformLocation(shaderProgram, "isLightSource"), 0); 
+        glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 0);
+        glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
+        glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, glm::value_ptr(glm::vec3(0.7f)));
         grid.draw(shaderProgram, camera.getViewMatrix(), camera.getProjectionMatrix(), glm::vec3(0.7f, 0.7f, 0.7f));
+
+        for (size_t i = 0; i < models.size(); ++i) {
+            if ((int)i == selectedModelIndex && !models[i].isLight) {
+                models[i].color = glm::vec3(1.0f, 0.0f, 0.0f);
+            } else if(!ui.enableColorChange && !models[i].isLight) {
+                models[i].color = models[i].originalColor;
+            }
+        }
 
         // Renderizar todos los modelos
         glUseProgram(shaderProgram);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));       
-        glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, glm::value_ptr(glm::vec3(1.2f, 1.0f, 2.0f)));
-        glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, glm::value_ptr(camera.eye)); 
-        glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
-
+        
         if (ui.showVertices) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
             glUniform1f(glGetUniformLocation(shaderProgram, "pointSize"), ui.vertexSize);
@@ -168,7 +180,22 @@ int main() {
             glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
         }
 
+        glm::vec3 currentLightPos(1.2f, 1.0f, 2.0f); // Creamos una luz
+        glm::vec3 currentLightColor(1.0f);
+
+        for (const auto& m : models) {
+            if (m.isLight) {
+                currentLightPos = m.position; 
+                currentLightColor = m.color;  
+                break; 
+            }
+        }
+
+        glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, glm::value_ptr(currentLightPos));
+        glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, glm::value_ptr(currentLightColor));
+
         for (size_t i = 0; i < models.size(); ++i) {
+            glUniform1i(glGetUniformLocation(shaderProgram, "isLightSource"), models[i].isLight ? 1 : 0);
             glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, glm::value_ptr(models[i].color));
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(models[i].transformMatrix));
             
@@ -238,7 +265,7 @@ int main() {
 
         // ELIMINAR MODELO SELECCIONADO (Backspace o Supr)
         if ((glfwGetKey(window, GLFW_KEY_BACKSPACE) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_DELETE) == GLFW_PRESS)) {
-            if (selectedModelIndex != -1) {
+            if (selectedModelIndex != -1 && !models[selectedModelIndex].isLight) {
                 SceneManager::DeleteSelectedModel(models, selectedModelIndex);
             }
         }
@@ -253,9 +280,7 @@ int main() {
     }
 
     // Finalizar Dear ImGui
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+    UIManager::Shutdown();
 
     // Finalizar glfw
     glfwDestroyWindow(window);

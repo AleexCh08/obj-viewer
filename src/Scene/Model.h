@@ -32,6 +32,7 @@ public:
 
     Model();
     std::string path;
+    bool isLight = false;
 
     GLuint debugNormalsVAO = 0, debugNormalsVBO = 0;
     GLuint debugBoxVAO = 0, debugBoxVBO = 0;
