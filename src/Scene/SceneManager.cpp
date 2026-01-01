@@ -6,6 +6,8 @@
 #include <GLFW/glfw3.h>
 #include <Core/Camera.h>
 #include <cmath>
+#include <algorithm>
+#include <iomanip>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -16,8 +18,18 @@ void SceneManager::Clear(std::vector<Model>& models) {
         glDeleteBuffers(1, &model.VBO);
         glDeleteBuffers(1, &model.EBO);
         glDeleteVertexArrays(1, &model.VAO);
+        if (model.hasTexture) {
+            glDeleteTextures(1, &model.textureID);
+        }
     }
     models.clear();
+
+    AddLight(models);
+    
+    if (!models.empty()) {
+        models[0].position = glm::vec3(1.2f, 1.0f, 2.0f);
+        models[0].updateTransformMatrix();
+    }
     std::cout << "Escena eliminada correctamente.\n";
 }
 
@@ -31,7 +43,7 @@ void SceneManager::Save(const std::string& filename, const std::vector<Model>& m
     for (const auto& model : models) {
         if (model.path.empty()) continue;
 
-        file << model.path << " "
+        file << std::quoted(model.path) << " "
              << model.position.x << " " << model.position.y << " " << model.position.z << " "
              << model.rotation.x << " " << model.rotation.y << " " << model.rotation.z << " "
              << model.scale.x << " " << model.scale.y << " " << model.scale.z << " "
@@ -39,7 +51,7 @@ void SceneManager::Save(const std::string& filename, const std::vector<Model>& m
     }
     
     file.close();
-    std::cout << "Escena guardada optimizada en " << filename << "\n";
+    std::cout << "Escena guardada en " << filename << "\n";
 }
 
 void SceneManager::Load(const std::string& filename, std::vector<Model>& models) {
@@ -54,8 +66,17 @@ void SceneManager::Load(const std::string& filename, std::vector<Model>& models)
     std::string path;
     glm::vec3 pos, rot, scl, col;
 
-    while (file >> path >> pos.x >> pos.y >> pos.z >> rot.x >> rot.y >> rot.z >> scl.x >> scl.y >> scl.z >> col.x >> col.y >> col.z) {
+    while (file >> std::quoted(path) >> pos.x >> pos.y >> pos.z >> rot.x >> rot.y >> rot.z >> scl.x >> scl.y >> scl.z >> col.x >> col.y >> col.z) {
         
+        if (path == "Internal:LightSphere") {
+            if (!models.empty() && models[0].isLight) {
+                models[0].position = pos;
+                models[0].color = col;
+                models[0].updateTransformMatrix();
+            }
+            continue;
+        }
+
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
         std::vector<tinyobj::material_t> materials;
@@ -64,7 +85,7 @@ void SceneManager::Load(const std::string& filename, std::vector<Model>& models)
         std::string baseDir = std::filesystem::path(path).parent_path().string() + "/";
 
         if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path.c_str(), baseDir.c_str())) {
-            Model newModel = Model::Process(attrib, shapes, materials, true);
+            Model newModel = Model::Process(attrib, shapes, materials, baseDir, true);
             
             newModel.path = path;
             newModel.position = pos;
@@ -150,7 +171,7 @@ void SceneManager::ImportModel(std::vector<Model>& models) {
         std::string baseDir = objPath.parent_path().string() + "/";
 
         if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath, baseDir.c_str())) {                   
-            Model newModel = Model::Process(attrib, shapes, materials, true);
+            Model newModel = Model::Process(attrib, shapes, materials, baseDir, true);
             newModel.path = std::string(filepath);
             models.push_back(newModel);                    
             std::cout << "Modelo cargado: " << objPath.filename() << std::endl;
@@ -250,8 +271,19 @@ void SceneManager::AddLight(std::vector<Model>& models) {
             float yPos = std::cos(ySegment * M_PI);
             float zPos = std::sin(xSegment * 2.0f * M_PI) * std::sin(ySegment * M_PI);
 
-            lightModel.vertices.push_back(xPos); lightModel.vertices.push_back(yPos); lightModel.vertices.push_back(zPos);
-            lightModel.vertices.push_back(xPos); lightModel.vertices.push_back(yPos); lightModel.vertices.push_back(zPos);
+            // 1. Posición (3 floats)
+            lightModel.vertices.push_back(xPos); 
+            lightModel.vertices.push_back(yPos); 
+            lightModel.vertices.push_back(zPos);
+            
+            // 2. Normales (3 floats)
+            lightModel.vertices.push_back(xPos); 
+            lightModel.vertices.push_back(yPos); 
+            lightModel.vertices.push_back(zPos);
+
+            // 3. Texturas (2 floats)!
+            lightModel.vertices.push_back(xSegment); 
+            lightModel.vertices.push_back(ySegment); 
         }
     }
 
@@ -276,12 +308,20 @@ void SceneManager::AddLight(std::vector<Model>& models) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lightModel.EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, lightModel.indices.size() * sizeof(unsigned int), lightModel.indices.data(), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    GLsizei stride = 8 * sizeof(float);
+
+    // 1. Posición
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    
+    // 2. Normales (Offset 3)
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+
+    // 3. Texturas (Offset 6)
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     lightModel.originalVertices = lightModel.vertices;
     models.push_back(lightModel);
-    std::cout << "Fuente de luz agregada a la escena.\n";
 }

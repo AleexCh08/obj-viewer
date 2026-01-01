@@ -1,4 +1,5 @@
 #include "Model.h"
+#include "../include/stb_image.h"
 
 Model::Model() : VAO(0), VBO(0), EBO(0), 
                  color(0.7f, 0.7f, 0.7f), originalColor(0.7f, 0.7f, 0.7f), 
@@ -19,10 +20,16 @@ void Model::setupModel() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    GLsizei stride = 8 * sizeof(float);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
 }
@@ -39,7 +46,7 @@ void Model::updateTransformMatrix() {
 }
 
 void Model::applyTransformations() {    
-    for (size_t i = 0; i < originalVertices.size(); i += 6) {
+    for (size_t i = 0; i < originalVertices.size(); i += 8) {
         glm::vec4 position(originalVertices[i], originalVertices[i+1], originalVertices[i+2], 1.0f);
         position = transformMatrix * position;
         vertices[i] = position.x;
@@ -73,7 +80,7 @@ void Model::Normalize(Model& model) {
     glm::vec3 minBounds(std::numeric_limits<float>::max());
     glm::vec3 maxBounds(std::numeric_limits<float>::lowest());
 
-    for (size_t i = 0; i < model.vertices.size(); i += 6) {
+    for (size_t i = 0; i < model.vertices.size(); i += 8) {
         glm::vec3 pos(model.vertices[i], model.vertices[i + 1], model.vertices[i + 2]);
         minBounds = glm::min(minBounds, pos);
         maxBounds = glm::max(maxBounds, pos);
@@ -83,14 +90,50 @@ void Model::Normalize(Model& model) {
     float scale = 1.0f / std::max(size.x, std::max(size.y, size.z)); 
     glm::vec3 center = (minBounds + maxBounds) * 0.5f;
 
-    for (size_t i = 0; i < model.vertices.size(); i += 6) {
+    for (size_t i = 0; i < model.vertices.size(); i += 8) {
         model.vertices[i + 0] = (model.vertices[i + 0] - center.x) * scale;
         model.vertices[i + 1] = (model.vertices[i + 1] - center.y) * scale;
         model.vertices[i + 2] = (model.vertices[i + 2] - center.z) * scale;
     }
 }
 
-Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes, const std::vector<tinyobj::material_t>& materials, bool normalize) {
+unsigned int TextureFromFile(const char* path, const std::string& directory) {
+    std::string filename = std::string(path);
+    filename = directory + filename;
+
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    stbi_set_flip_vertically_on_load(true);
+
+    int width, height, nrComponents;
+    unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
+    if (data) {
+        GLenum format;
+        if (nrComponents == 1) format = GL_RED;
+        else if (nrComponents == 3) format = GL_RGB;
+        else if (nrComponents == 4) format = GL_RGBA;
+        else format = GL_RGB;
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data); 
+        std::cout << "Textura cargada correctamente: " << filename << std::endl;
+    } else {
+        std::cout << "No se pudo cargar la textura (¿Esta en la misma carpeta?): " << filename << std::endl;
+        stbi_image_free(data);
+    }
+
+    return textureID;
+}
+
+Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes, const std::vector<tinyobj::material_t>& materials, const std::string& baseDir, bool normalize) {
     Model model;
     
     for (const auto& shape : shapes) {
@@ -98,6 +141,8 @@ Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj:
             tinyobj::index_t idx0 = shape.mesh.indices[i + 0];
             tinyobj::index_t idx1 = shape.mesh.indices[i + 1];
             tinyobj::index_t idx2 = shape.mesh.indices[i + 2];
+
+            tinyobj::index_t current_indices[] = {idx0, idx1, idx2};
 
             glm::vec3 v0(attrib.vertices[3 * idx0.vertex_index + 0], attrib.vertices[3 * idx0.vertex_index + 1], attrib.vertices[3 * idx0.vertex_index + 2]);
             glm::vec3 v1(attrib.vertices[3 * idx1.vertex_index + 0], attrib.vertices[3 * idx1.vertex_index + 1], attrib.vertices[3 * idx1.vertex_index + 2]);
@@ -110,12 +155,26 @@ Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj:
             glm::vec3 vertices[] = {v0, v1, v2};
             
             for (int j = 0; j < 3; ++j) {
+                // 1. Posición
                 model.vertices.push_back(vertices[j].x);
                 model.vertices.push_back(vertices[j].y);
                 model.vertices.push_back(vertices[j].z);
+                
+                // 2. Normales
                 model.vertices.push_back(triangleNormal.x);
                 model.vertices.push_back(triangleNormal.y);
                 model.vertices.push_back(triangleNormal.z);
+
+                // 3. Texturas (NUEVO)
+                tinyobj::index_t idx = current_indices[j];
+                if (idx.texcoord_index >= 0) {
+                    model.vertices.push_back(attrib.texcoords[2 * idx.texcoord_index + 0]);
+                    model.vertices.push_back(attrib.texcoords[2 * idx.texcoord_index + 1]);
+                } else {
+                    model.vertices.push_back(0.0f);
+                    model.vertices.push_back(0.0f);
+                }
+
                 model.indices.push_back(static_cast<unsigned int>(model.indices.size()));
             }
         }
@@ -124,6 +183,10 @@ Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj:
     if (!materials.empty()) {
         model.color = glm::vec3(materials[0].diffuse[0], materials[0].diffuse[1], materials[0].diffuse[2]);
         model.originalColor = model.color;
+        if (!materials[0].diffuse_texname.empty()) {
+            model.textureID = TextureFromFile(materials[0].diffuse_texname.c_str(), baseDir);
+            model.hasTexture = true;
+        }
     } else {
         model.color = glm::vec3(0.7f, 0.7f, 0.7f);
         model.originalColor = model.color;
@@ -137,7 +200,8 @@ Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj:
 
     glm::vec3 minBounds(FLT_MAX);
     glm::vec3 maxBounds(-FLT_MAX);
-    for (size_t i = 0; i < model.vertices.size(); i += 6) {
+    
+    for (size_t i = 0; i < model.vertices.size(); i += 8) {
         glm::vec3 pos(model.vertices[i], model.vertices[i + 1], model.vertices[i + 2]);
         minBounds = glm::min(minBounds, pos);
         maxBounds = glm::max(maxBounds, pos);
@@ -149,20 +213,17 @@ Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj:
 }
 
 void Model::drawDebugNormals(GLuint shaderProgram, const glm::vec3& color) {
-    // 1. SI NO EXISTE, LO CREAMOS (Solo ocurre 1 vez)
     if (debugNormalsVAO == 0) {
         std::vector<float> normalLines;
-        // Usamos la geometría original para generar las líneas
-        for (size_t i = 0; i < vertices.size(); i += 6) {
+        for (size_t i = 0; i < vertices.size(); i += 8) {
             glm::vec3 pos(vertices[i], vertices[i + 1], vertices[i + 2]);
             glm::vec3 norm(vertices[i + 3], vertices[i + 4], vertices[i + 5]);
             
-            // Línea desde el vértice hacia afuera
             normalLines.push_back(pos.x);
             normalLines.push_back(pos.y);
             normalLines.push_back(pos.z);
             
-            glm::vec3 endPos = pos + norm * 0.1f; // Largo de la normal
+            glm::vec3 endPos = pos + norm * 0.1f;
             normalLines.push_back(endPos.x);
             normalLines.push_back(endPos.y);
             normalLines.push_back(endPos.z);
@@ -178,23 +239,18 @@ void Model::drawDebugNormals(GLuint shaderProgram, const glm::vec3& color) {
         glBindVertexArray(0);
     }
 
-    // 2. DIBUJAR (Esto es lo único que se ejecuta en cada frame -> Rápido)
     glBindVertexArray(debugNormalsVAO);
     glUniform1i(glGetUniformLocation(shaderProgram, "useNormalsColor"), true);
     glUniform3fv(glGetUniformLocation(shaderProgram, "normalsColor"), 1, glm::value_ptr(color));
 
-    // Calculamos cantidad de vértices (vertices.size() / 6 * 2)
-    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(vertices.size() / 3));
+    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(vertices.size() / 8 * 2));
 
     glBindVertexArray(0);
     glUniform1i(glGetUniformLocation(shaderProgram, "useNormalsColor"), false);
 }
 
 void Model::drawDebugBoundingBox(GLuint shaderProgram, const glm::vec3& color) {
-    // 1. SI NO EXISTE, LO CREAMOS
     if (debugBoxVAO == 0) {
-        // Usamos los bounds que YA calculamos al cargar el modelo (O(1))
-        // en lugar de recorrer todos los vértices otra vez (O(N))
         glm::vec3 min = localMinBounds;
         glm::vec3 max = localMaxBounds;
 
@@ -225,7 +281,6 @@ void Model::drawDebugBoundingBox(GLuint shaderProgram, const glm::vec3& color) {
         glBindVertexArray(0);
     }
 
-    // 2. DIBUJAR
     glUseProgram(shaderProgram);
     glBindVertexArray(debugBoxVAO);
     

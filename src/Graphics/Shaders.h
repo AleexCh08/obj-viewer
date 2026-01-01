@@ -5,9 +5,11 @@ R"(
     #version 330 core
     layout (location = 0) in vec3 aPos;
     layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec2 aTexCoords;
 
     out vec3 FragPos;
     out vec3 Normal;
+    out vec2 TexCoords;
 
     uniform mat4 model;
     uniform mat4 view;
@@ -17,6 +19,7 @@ R"(
     void main() {
         FragPos = vec3(model * vec4(aPos, 1.0));
         Normal = mat3(transpose(inverse(model))) * aNormal;
+        TexCoords = aTexCoords;
         gl_Position = projection * view * vec4(FragPos, 1.0);    
         gl_PointSize = pointSize;
     }
@@ -29,6 +32,7 @@ R"(
 
     in vec3 FragPos;
     in vec3 Normal;
+    in vec2 TexCoords;
 
     uniform vec3 objectColor;
     uniform vec3 vertexColor;
@@ -50,12 +54,14 @@ R"(
     uniform bool isGrid;
     uniform vec3 gridColor;
 
+    uniform sampler2D texture1;
+    uniform int hasTexture;
+
     void main() {
         if (isLightSource == 1) {
             FragColor = vec4(objectColor, 1.0); 
             return; 
         }
-
         if (isGrid) {
             FragColor = vec4(gridColor, 1.0); 
             return;
@@ -64,7 +70,11 @@ R"(
             FragColor = vec4(boundingBoxColor, 1.0);
             return;
         }
-
+        if (useNormalsColor) {
+            FragColor = vec4(normalsColor, 1.0);
+            return;
+        }
+      
         // Ambient
         float ambientStrength = 0.1;
         vec3 ambient = ambientStrength * lightColor;
@@ -82,18 +92,20 @@ R"(
         float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
         vec3 specular = specularStrength * spec * lightColor;
 
-        vec3 resultColor = objectColor;
-        if (useVertexColor) {
-            resultColor = vertexColor;
-        } else if (useWireframeColor) {
-            resultColor = wireframeColor;
+        vec3 lighting = (ambient + diffuse + specular);
+  
+        if (hasTexture == 1) {
+            vec4 texColor = texture(texture1, TexCoords);
+            FragColor = vec4(lighting, 1.0) * texColor;
         } else {
-            resultColor = objectColor;
+            vec3 currentColor = objectColor;
+            
+            if (useVertexColor) {
+                currentColor = vertexColor;
+            } else if (useWireframeColor) {
+                currentColor = wireframeColor;
+            }
+            FragColor = vec4(lighting * currentColor, 1.0);
         }
-
-        vec3 result = (ambient + diffuse + specular) * resultColor;
-        vec3 result2 = useNormalsColor ? normalsColor : result;
-
-        FragColor = vec4(result2, 1.0);
     }
 )";

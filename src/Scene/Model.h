@@ -34,6 +34,9 @@ public:
     std::string path;
     bool isLight = false;
 
+    unsigned int textureID = 0;
+    bool hasTexture = false;
+
     GLuint debugNormalsVAO = 0, debugNormalsVBO = 0;
     GLuint debugBoxVAO = 0, debugBoxVBO = 0;
 
@@ -42,7 +45,7 @@ public:
     void applyTransformations();
     void draw(GLuint shaderProgram) const;
 
-    static Model Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes, const std::vector<tinyobj::material_t>& materials, bool normalize);
+    static Model Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes, const std::vector<tinyobj::material_t>& materials, const std::string& baseDir, bool normalize);
     static void Normalize(Model& model);
 
     void drawDebugNormals(GLuint shaderProgram, const glm::vec3& color);

@@ -209,6 +209,15 @@ int main() {
             glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, glm::value_ptr(models[i].color));
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(models[i].transformMatrix));
             
+            if (models[i].hasTexture) {
+                glActiveTexture(GL_TEXTURE0); 
+                glBindTexture(GL_TEXTURE_2D, models[i].textureID);
+                glUniform1i(glGetUniformLocation(shaderProgram, "hasTexture"), 1);
+                glUniform1i(glGetUniformLocation(shaderProgram, "texture1"), 0); 
+            } else {
+                glUniform1i(glGetUniformLocation(shaderProgram, "hasTexture"), 0);
+            }
+
             models[i].draw(shaderProgram);
             if (ui.showNormals) {
                 models[i].drawDebugNormals(shaderProgram, ui.normalsColor);

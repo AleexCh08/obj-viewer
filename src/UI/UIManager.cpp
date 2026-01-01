@@ -111,7 +111,6 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Guardar Escena (Ctrl+S)")) {
-                for (auto& model : models) model.applyTransformations();
                 SceneManager::Save("scene.txt", models);
             }
             if (ImGui::MenuItem("Cargar Escena (Ctrl+L)")) {
