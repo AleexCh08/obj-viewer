@@ -1,5 +1,8 @@
 #include "Window.h"
 
+#define STB_IMAGE_IMPLEMENTATION 
+#include "../include/stb_image.h"
+
 void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
@@ -22,6 +25,18 @@ GLFWwindow* Window::Init(int width, int height, const char* title) {
     }
 
     glfwMakeContextCurrent(window);
+
+    GLFWimage images[1]; 
+    int channels;
+    images[0].pixels = stbi_load("icon.png", &images[0].width, &images[0].height, &channels, 4); 
+
+    if (images[0].pixels) {
+        glfwSetWindowIcon(window, 1, images); 
+        stbi_image_free(images[0].pixels); 
+    } else {
+        std::cout << "No se pudo cargar icon.png" << std::endl;
+    }
+
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "No se pudo inicializar Glad" << std::endl;
         glfwTerminate();
