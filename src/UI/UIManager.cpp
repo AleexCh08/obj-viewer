@@ -238,30 +238,64 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
     if (selectedModelIndex != -1 && selectedModelIndex < (int)models.size()) {
         Model& currentModel = models[selectedModelIndex];
 
+        // --- LÓGICA DE TAMAÑO DINÁMICO ---
         ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - 150));
-        ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, 150));
+        
+        // Si es luz, ventana más pequeña (100px), si es modelo, normal (150px)
+        float panelHeight = currentModel.isLight ? 100.0f : 150.0f;
+        
+        ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - panelHeight));
+        ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, panelHeight));
         ImGui::SetNextWindowBgAlpha(0.9f);
 
         ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
         ImGui::Begin("Transform Bar", NULL, flags);
 
         if (currentModel.isLight) {
-            ImGui::TextColored(ImVec4(1, 1, 0, 1), "FUENTE DE LUZ SELECCIONADA");
+            // --- DISEÑO COMPACTO PARA LUZ ---
+            ImGui::AlignTextToFramePadding(); // Alinear texto verticalmente con botones
+            ImGui::TextColored(ImVec4(1, 1, 0, 1), "FUENTE DE LUZ");
+            
+            ImGui::SameLine();
+            ImGui::TextDisabled("| ID: %d", selectedModelIndex);
+
+            // Botón Deseleccionar alineado a la derecha
+            float buttonWidth = 150.0f;
+            ImGui::SameLine(ImGui::GetWindowWidth() - buttonWidth - 20); 
+            if (ImGui::Button("Deseleccionar", ImVec2(buttonWidth, 0))) {
+                selectedModelIndex = -1;
+            }
+
             ImGui::Separator();
 
             ImGui::Columns(2, "LightCols", false);
-            ImGui::Text("Posición de la Luz");
+            
+            // Col 1: Posición
+            ImGui::Text("Posición");
             if (DrawVec3Control("PosLight", currentModel.position, 0.0f, 0.02f)) {
                 currentModel.updateTransformMatrix();
             }
+            
             ImGui::NextColumn();
-            ImGui::Text("Color de la Luz");
+            
+            // Col 2: Color
+            ImGui::Text("Color / Intensidad");
             ImGui::SetNextItemWidth(-1);
-            ImGui::ColorEdit3("##LightColor", (float*)&currentModel.color, ImGuiColorEditFlags_NoInputs);
+            ImGui::ColorEdit3("##LightColor", (float*)&currentModel.color);
+            
+            ImGui::EndColumns();
             
         } else {
+            // --- DISEÑO COMPLETO PARA MODELOS ---
             ImGui::TextColored(ImVec4(1, 0.8f, 0, 1), "OBJETO SELECCIONADO: ID %d", selectedModelIndex);
+            
+            // Botón Deseleccionar alineado a la derecha (opcional para modelos también)
+             float buttonWidth = 120.0f;
+            ImGui::SameLine(ImGui::GetWindowWidth() - buttonWidth - 20); 
+             if (ImGui::Button("Deseleccionar", ImVec2(buttonWidth, 0))) {
+                selectedModelIndex = -1;
+            }
+
             ImGui::Separator();
             ImGui::Columns(4, "TransformCols", false); 
 
@@ -289,14 +323,13 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             }
 
             ImGui::Dummy(ImVec2(0.0f, 5.0f));
-            ImGui::Text("Uniforme (Todos)");
+            ImGui::Text("Uniforme");
             float uScale = currentModel.scale.x; 
             
             ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 10);
             if (ImGui::DragFloat("##Uniform", &uScale, 0.02f, 0.01f, 100.0f, "%.2f")) {
                 currentModel.scale = glm::vec3(uScale);
                 if (currentModel.scale.x < 0.01f) currentModel.scale = glm::vec3(0.01f);
-                
                 currentModel.updateTransformMatrix();
             }
             ImGui::NextColumn();
@@ -310,7 +343,10 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             }
             ImGui::PopStyleColor(2);
         }   
-        ImGui::EndColumns();
+        
+        if (!currentModel.isLight) {
+            ImGui::EndColumns();
+        }
         ImGui::End();   
     }
 

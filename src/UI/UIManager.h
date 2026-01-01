@@ -24,7 +24,7 @@ struct UIState {
     bool enableBackFaceCulling = true;
     bool showFPS = true;
     bool enableAntialiasing = true;
-    bool showBoundingBox = false;
+    bool showBoundingBox = true;
     bool enableColorChange = false;
     bool showPropertiesPanel = true;
 };
