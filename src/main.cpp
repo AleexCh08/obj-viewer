@@ -14,6 +14,16 @@
 #include <vector>
 #include <string>
 
+extern void ImGui_ImplGlfw_ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+Camera* globalCameraPtr = nullptr;
+void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+    ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
+
+    if (!ImGui::GetIO().WantCaptureMouse && globalCameraPtr) {
+        globalCameraPtr->ProcessMouseScroll((float)yoffset);
+    }
+}
+
 // Funcion principal para la ejecucion del programa
 int main() {
     GLFWwindow* window = Window::Init(1024, 768, "ViewerOBJ Pro");
@@ -22,9 +32,11 @@ int main() {
     Shader shader(vertexShaderSource, fragmentShaderSource);
     GLuint shaderProgram = shader.ID;
     Camera camera(1024, 768, glm::vec3(0.0f, 1.5f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    globalCameraPtr = &camera;
     UIState ui;
     UIManager::Init(window); 
     Grid grid(20.0f, 20, 5);
+    glfwSetScrollCallback(window, ScrollCallback);
 
     glm::vec3 bgColor(0.46f, 0.46f, 0.46f); // Color de fondo inicial
     std::vector<Model> models; // Vector para almacenar modelos cargados
