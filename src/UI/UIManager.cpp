@@ -243,8 +243,8 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         Model& currentModel = models[selectedModelIndex];
 
         ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - 120));
-        ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, 120));
+        ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - 150));
+        ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, 150));
         ImGui::SetNextWindowBgAlpha(0.9f);
 
         ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
@@ -291,7 +291,7 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         }
         ImGui::NextColumn();
 
-        ImGui::Dummy(ImVec2(0, 15)); 
+        ImGui::Dummy(ImVec2(0, 35)); 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
               
