@@ -5,6 +5,11 @@
 #include <sstream>
 #include <GLFW/glfw3.h>
 #include <Core/Camera.h>
+#include <cmath>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 void SceneManager::Clear(std::vector<Model>& models) {
     for (auto& model : models) {
@@ -223,4 +228,60 @@ void SceneManager::DeleteSelectedModel(std::vector<Model>& models, int& selected
     selectedIndex = -1;
     
     std::cout << "Modelo eliminado correctamente." << std::endl;
+}
+
+void SceneManager::AddLight(std::vector<Model>& models) {
+    Model lightModel;
+    lightModel.isLight = true;
+    lightModel.color = glm::vec3(1.0f, 1.0f, 1.0f);
+    lightModel.originalColor = glm::vec3(1.0f, 1.0f, 1.0f);
+    lightModel.position = glm::vec3(2.0f, 2.0f, 2.0f); 
+    lightModel.scale = glm::vec3(0.1f); 
+    lightModel.path = "Internal:LightSphere";
+
+    const int X_SEGMENTS = 30;
+    const int Y_SEGMENTS = 30;
+
+    for (int y = 0; y <= Y_SEGMENTS; ++y) {
+        for (int x = 0; x <= X_SEGMENTS; ++x) {
+            float xSegment = (float)x / (float)X_SEGMENTS;
+            float ySegment = (float)y / (float)Y_SEGMENTS;
+            float xPos = std::cos(xSegment * 2.0f * M_PI) * std::sin(ySegment * M_PI);
+            float yPos = std::cos(ySegment * M_PI);
+            float zPos = std::sin(xSegment * 2.0f * M_PI) * std::sin(ySegment * M_PI);
+
+            lightModel.vertices.push_back(xPos); lightModel.vertices.push_back(yPos); lightModel.vertices.push_back(zPos);
+            lightModel.vertices.push_back(xPos); lightModel.vertices.push_back(yPos); lightModel.vertices.push_back(zPos);
+        }
+    }
+
+    for (int y = 0; y < Y_SEGMENTS; ++y) {
+        for (int x = 0; x < X_SEGMENTS; ++x) {
+            lightModel.indices.push_back((y + 1) * (X_SEGMENTS + 1) + x);
+            lightModel.indices.push_back(y * (X_SEGMENTS + 1) + x);
+            lightModel.indices.push_back(y * (X_SEGMENTS + 1) + x + 1);
+            lightModel.indices.push_back((y + 1) * (X_SEGMENTS + 1) + x);
+            lightModel.indices.push_back(y * (X_SEGMENTS + 1) + x + 1);
+            lightModel.indices.push_back((y + 1) * (X_SEGMENTS + 1) + x + 1);
+        }
+    }
+
+    glGenVertexArrays(1, &lightModel.VAO);
+    glGenBuffers(1, &lightModel.VBO);
+    glGenBuffers(1, &lightModel.EBO);
+
+    glBindVertexArray(lightModel.VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, lightModel.VBO);
+    glBufferData(GL_ARRAY_BUFFER, lightModel.vertices.size() * sizeof(float), lightModel.vertices.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lightModel.EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, lightModel.indices.size() * sizeof(unsigned int), lightModel.indices.data(), GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    lightModel.originalVertices = lightModel.vertices;
+    models.push_back(lightModel);
+    std::cout << "Fuente de luz agregada a la escena.\n";
 }

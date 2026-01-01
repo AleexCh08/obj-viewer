@@ -28,4 +28,5 @@ public:
     static void ImportModel(std::vector<Model>& models);
     static void DeleteSelectedModel(std::vector<Model>& models, int& selectedIndex);
     static int PickModel(GLFWwindow* window, const std::vector<Model>& models, const Camera& camera);
+    static void AddLight(std::vector<Model>& models);
 };
