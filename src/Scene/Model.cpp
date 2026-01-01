@@ -125,16 +125,17 @@ unsigned int TextureFromFile(const char* path, const std::string& directory) {
 
         stbi_image_free(data); 
         std::cout << "Textura cargada correctamente: " << filename << std::endl;
+        return textureID;
     } else {
         std::cout << "No se pudo cargar la textura (¿Esta en la misma carpeta?): " << filename << std::endl;
         stbi_image_free(data);
+        return 0;
     }
-
-    return textureID;
 }
 
 Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj::shape_t>& shapes, const std::vector<tinyobj::material_t>& materials, const std::string& baseDir, bool normalize) {
     Model model;
+    model.hasTexture = false;
     
     for (const auto& shape : shapes) {
         for (size_t i = 0; i < shape.mesh.indices.size(); i += 3) {
@@ -184,8 +185,13 @@ Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj:
         model.color = glm::vec3(materials[0].diffuse[0], materials[0].diffuse[1], materials[0].diffuse[2]);
         model.originalColor = model.color;
         if (!materials[0].diffuse_texname.empty()) {
-            model.textureID = TextureFromFile(materials[0].diffuse_texname.c_str(), baseDir);
-            model.hasTexture = true;
+            unsigned int loadedTexID = TextureFromFile(materials[0].diffuse_texname.c_str(), baseDir);           
+            if (loadedTexID != 0) {
+                model.textureID = loadedTexID;
+                model.hasTexture = true;
+            } else {
+                model.hasTexture = false;
+            }
         }
     } else {
         model.color = glm::vec3(0.7f, 0.7f, 0.7f);
