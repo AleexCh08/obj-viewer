@@ -272,10 +272,21 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         // Escala
         ImGui::Text("Escala");
         if (DrawVec3Control("Scl", currentModel.scale, 1.0f, 0.02f)) {
-            // Evitar escala 0 o negativa
             if(currentModel.scale.x < 0.01f) currentModel.scale.x = 0.01f;
             if(currentModel.scale.y < 0.01f) currentModel.scale.y = 0.01f;
             if(currentModel.scale.z < 0.01f) currentModel.scale.z = 0.01f;
+            currentModel.updateTransformMatrix();
+        }
+
+        ImGui::Dummy(ImVec2(0.0f, 5.0f));
+        ImGui::Text("Uniforme (Todos)");
+        float uScale = currentModel.scale.x; 
+        
+        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 10);
+        if (ImGui::DragFloat("##Uniform", &uScale, 0.02f, 0.01f, 100.0f, "%.2f")) {
+            currentModel.scale = glm::vec3(uScale);
+            if (currentModel.scale.x < 0.01f) currentModel.scale = glm::vec3(0.01f);
+            
             currentModel.updateTransformMatrix();
         }
         ImGui::NextColumn();
@@ -283,6 +294,7 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         ImGui::Dummy(ImVec2(0, 15)); 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
+              
         if (ImGui::Button("ELIMINAR", ImVec2(-1, 40))) {
             SceneManager::DeleteSelectedModel(models, selectedModelIndex);
         }
