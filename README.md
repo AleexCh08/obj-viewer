@@ -1,3 +1,19 @@
+Para ejecutar tu programa directamente desde la terminal de VS Code, asegúrate de estar en la raíz de tu proyecto y utiliza este comando:
+
+```bash
+.\build\MiApp.exe
+
+```
+
+*(Nota: Si usas PowerShell, el comando anterior es el correcto. Si usas Git Bash o una terminal de Linux/WSL, el comando sería `./build/MiApp.exe`).*
+
+---
+
+### Código para tu `README.md`
+
+Crea un archivo llamado `README.md` en la raíz de tu proyecto y pega el siguiente contenido. Está redactado de forma profesional y refleja la estructura moderna que acabamos de configurar:
+
+```markdown
 # OBJ Viewer
 
 Visor de modelos 3D interactivo desarrollado en C++ moderno. Este proyecto permite cargar, visualizar y manipular archivos de objetos 3D (.obj) utilizando una interfaz gráfica en tiempo real.
@@ -38,3 +54,34 @@ El proyecto está estructurado para ser construido fácilmente con CMake. Sigue 
    ```bash
    git clone [https://github.com/TU_USUARIO/obj-viewer.git](https://github.com/TU_USUARIO/obj-viewer.git)
    cd obj-viewer
+
+```
+
+2. **Configurar el proyecto con CMake:**
+```bash
+cmake -S . -B build -G "MinGW Makefiles"
+
+```
+
+
+3. **Compilar el código fuente:**
+```bash
+cmake --build build --config Debug
+
+```
+
+
+4. **Ejecutar la aplicación:**
+```bash
+.\build\MiApp.exe
+
+```
+
+
+## 👨‍💻 Desarrollado por
+
+**AleexCh**
+
+```
+
+```
