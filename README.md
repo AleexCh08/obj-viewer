@@ -35,24 +35,24 @@ Para compilar y ejecutar este proyecto en tu entorno local, necesitas tener inst
 El proyecto está estructurado para ser construido fácilmente con CMake. Sigue estos pasos desde tu terminal:
 
 1. **Clonar el repositorio:**
-   ```Bash```
+```Bash
    git clone [https://github.com/TU_USUARIO/obj-viewer.git](https://github.com/TU_USUARIO/obj-viewer.git)
    cd obj-viewer
-
+ ```
 2. **Configurar el proyecto con CMake:**
 
-```Bash```
+```Bash
     cmake -S . -B build -G "MinGW Makefiles"
-
+```
 3. **Compilar el código fuente:**
 
-```Bash```
+```Bash
     cmake --build build --config Debug
-
+```
 4. **Ejecutar la aplicación:**
 
-```Bash```
+```Bash
     .\build\MiApp.exe
-
+```
 ## 👨‍💻 Desarrollado por
 AleexCh
