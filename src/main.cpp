@@ -182,23 +182,6 @@ int main() {
         glm::vec3 camPos = glm::vec3(glm::inverse(camera.getViewMatrix())[3]);
         glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, glm::value_ptr(camPos));       
         
-        if (ui.showVertices) {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
-            glUniform1f(glGetUniformLocation(shaderProgram, "pointSize"), ui.vertexSize);
-            glUniform3fv(glGetUniformLocation(shaderProgram, "vertexColor"), 1, glm::value_ptr(ui.vertexColor));
-            glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 1);
-            glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
-        } else if (ui.showWireframe) {           
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 1);
-            glUniform3fv(glGetUniformLocation(shaderProgram, "wireframeColor"), 1, glm::value_ptr(ui.wireframeColor));
-            glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 0);
-        } else {          
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 0);
-            glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
-        }
-
         glm::vec3 currentLightPos(1.2f, 1.0f, 2.0f); // Creamos una luz
         glm::vec3 currentLightColor(1.0f);
 
@@ -227,18 +210,48 @@ int main() {
                 glUniform1i(glGetUniformLocation(shaderProgram, "hasTexture"), 0);
             }
 
+            // 1. CAPA BASE: Relleno sólido/Textura
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 0);
+            glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
             models[i].draw(shaderProgram);
+
+            // Evitar el Z-fighting desplazando sutilmente la profundidad de líneas y puntos hacia la cámara
+            glEnable(GL_POLYGON_OFFSET_LINE);
+            glEnable(GL_POLYGON_OFFSET_POINT);
+            glPolygonOffset(-1.0f, -1.0f);
+
+            // 2. CAPA SUPERPUESTA: Alambrado
+            if (ui.showWireframe) {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+                glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 1);
+                glUniform3fv(glGetUniformLocation(shaderProgram, "wireframeColor"), 1, glm::value_ptr(ui.wireframeColor));
+                models[i].draw(shaderProgram);
+                glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0); // Restaurar
+            }
+
+            // 3. CAPA SUPERPUESTA: Vértices
+            if (ui.showVertices) {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+                glUniform1f(glGetUniformLocation(shaderProgram, "pointSize"), ui.vertexSize);
+                glUniform3fv(glGetUniformLocation(shaderProgram, "vertexColor"), 1, glm::value_ptr(ui.vertexColor));
+                glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 1);
+                models[i].draw(shaderProgram);
+                glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 0); // Restaurar
+            }
+
+            // Apagar desplazamiento para evitar afectar otras lógicas
+            glDisable(GL_POLYGON_OFFSET_LINE);
+            glDisable(GL_POLYGON_OFFSET_POINT);
+            
+            // 4. CAPA SUPERPUESTA: Debug (Normales y Cajas)
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); 
             if (ui.showNormals) {
                 models[i].drawDebugNormals(shaderProgram, ui.normalsColor);
             }
-            
             if (ui.showBoundingBox && selectedModelIndex == (int)i) {
                 models[selectedModelIndex].drawDebugBoundingBox(shaderProgram, ui.boundingBoxColor);             
             }
-        }
-        
-        if (ui.showWireframe || ui.showVertices) {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
 
         // Atajos del teclado  
