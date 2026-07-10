@@ -171,6 +171,7 @@ int main() {
 
         // Renderizar todos los modelos
         glUseProgram(shaderProgram);
+        glUniform1i(glGetUniformLocation(shaderProgram, "renderMode"), ui.renderMode);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));       
         

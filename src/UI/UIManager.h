@@ -10,6 +10,7 @@
 
 // Esta estructura guardará toda la configuración de tu programa
 struct UIState {
+    int renderMode = 0;
     float vertexSize = 5.0f;
     glm::vec3 vertexColor = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 wireframeColor = glm::vec3(0.0f, 1.0f, 0.0f);

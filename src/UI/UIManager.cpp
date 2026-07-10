@@ -171,6 +171,13 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             }
             
             ImGui::Separator();
+
+            // Estilo de Renderizado
+            ImGui::Text("Estilo de Renderizado");
+            const char* renderModes[] = { "1. Solida / Textura", "2. Sin Iluminacion", "3. Normal (Phong)", "4. Caricatura", "5. Boceto", "6. Holograma" };
+            ImGui::Combo("##RenderMode", &state.renderMode, renderModes, IM_ARRAYSIZE(renderModes));
+
+            ImGui::Separator();
             
             // Color del Relleno (Logic para modelos)
             if (!models.empty()) {

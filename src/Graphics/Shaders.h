@@ -56,56 +56,50 @@ R"(
 
     uniform sampler2D texture1;
     uniform int hasTexture;
+    
+    uniform int renderMode; // NUEVA VARIABLE PARA CONTROLAR EL ESTILO
 
     void main() {
-        if (isLightSource == 1) {
-            FragColor = vec4(objectColor, 1.0); 
-            return; 
-        }
-        if (isGrid) {
-            FragColor = vec4(gridColor, 1.0); 
-            return;
-        }
-        if (useBoundingBoxColor) {
-            FragColor = vec4(boundingBoxColor, 1.0);
-            return;
-        }
-        if (useNormalsColor) {
-            FragColor = vec4(normalsColor, 1.0);
-            return;
-        }
+        // Excepciones para depuración y luces (se dibujan sin afectar el estilo)
+        if (isLightSource == 1) { FragColor = vec4(objectColor, 1.0); return; }
+        if (isGrid) { FragColor = vec4(gridColor, 1.0); return; }
+        if (useBoundingBoxColor) { FragColor = vec4(boundingBoxColor, 1.0); return; }
+        if (useNormalsColor) { FragColor = vec4(normalsColor, 1.0); return; }
       
-        // Ambient
-        float ambientStrength = 0.1;
-        vec3 ambient = ambientStrength * lightColor;
-
-        // Diffuse
-        vec3 norm = normalize(Normal);
-        vec3 lightDir = normalize(lightPos - FragPos);
-        float diff = max(dot(norm, lightDir), 0.0);
-        vec3 diffuse = diff * lightColor;
-
-        // Specular
-        float specularStrength = 0.5;
-        vec3 viewDir = normalize(viewPos - FragPos);
-        vec3 reflectDir = reflect(-lightDir, norm);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-        vec3 specular = specularStrength * spec * lightColor;
-
-        vec3 lighting = (ambient + diffuse + specular);
-  
+        // 1. OBTENER COLOR BASE (Textura o Color Plano)
+        vec4 baseColor;
         if (hasTexture == 1) {
-            vec4 texColor = texture(texture1, TexCoords);
-            FragColor = vec4(lighting, 1.0) * texColor;
+            baseColor = texture(texture1, TexCoords);
         } else {
             vec3 currentColor = objectColor;
-            
-            if (useVertexColor) {
-                currentColor = vertexColor;
-            } else if (useWireframeColor) {
-                currentColor = wireframeColor;
-            }
-            FragColor = vec4(lighting * currentColor, 1.0);
+            if (useVertexColor) currentColor = vertexColor;
+            else if (useWireframeColor) currentColor = wireframeColor;
+            baseColor = vec4(currentColor, 1.0);
+        }
+
+        // 2. APLICAR ESTILO SEGÚN EL RENDER MODE
+        if (renderMode == 0) {
+            // MODO 0: Vista Sólida / Textura (Iluminación estándar base)
+            float ambientStrength = 0.1;
+            vec3 ambient = ambientStrength * lightColor;
+
+            vec3 norm = normalize(Normal);
+            vec3 lightDir = normalize(lightPos - FragPos);
+            float diff = max(dot(norm, lightDir), 0.0);
+            vec3 diffuse = diff * lightColor;
+
+            float specularStrength = 0.5;
+            vec3 viewDir = normalize(viewPos - FragPos);
+            vec3 reflectDir = reflect(-lightDir, norm);
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+            vec3 specular = specularStrength * spec * lightColor;
+
+            vec3 lighting = (ambient + diffuse + specular);
+            FragColor = vec4(lighting * baseColor.rgb, baseColor.a);
+        }
+        else {
+            // Fallback por defecto temporal
+            FragColor = baseColor; 
         }
     }
 )";
