@@ -193,13 +193,21 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
                 ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "COLOR GLOBAL");
                 ImGui::Separator();
                 if (!models.empty()) {
-                    ImGui::Checkbox("Sobrescribir Color Base", &state.enableColorChange);
+                    if (ImGui::Checkbox("Sobrescribir Color Base", &state.enableColorChange)) {
+                        if (!state.enableColorChange) {
+                            for (size_t i = 0; i < models.size(); ++i) {
+                                if (static_cast<int>(i) != selectedModelIndex && !models[i].isLight) {
+                                    models[i].color = models[i].originalColor;
+                                }
+                            }
+                        }
+                    }
                     if (state.enableColorChange) {
                         ImGui::SetNextItemWidth(-1);
                         ImGui::ColorEdit3("##NewColor", (float*)&state.newColor);
                         
                         for (size_t i = 0; i < models.size(); ++i) {
-                            if (static_cast<int>(i) != selectedModelIndex) {
+                            if (static_cast<int>(i) != selectedModelIndex && !models[i].isLight) {
                                 models[i].color = state.newColor;
                             }
                         }

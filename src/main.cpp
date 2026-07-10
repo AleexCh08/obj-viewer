@@ -165,14 +165,14 @@ int main() {
         glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
         glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, glm::value_ptr(glm::vec3(0.7f)));
         grid.draw(shaderProgram, camera.getViewMatrix(), camera.getProjectionMatrix(), glm::vec3(0.7f, 0.7f, 0.7f));
-
+/*
         for (size_t i = 0; i < models.size(); ++i) {
             if ((int)i == selectedModelIndex && !models[i].isLight) {
                 models[i].color = glm::vec3(1.0f, 0.0f, 0.0f);
             } else if(!ui.enableColorChange && !models[i].isLight) {
                 models[i].color = models[i].originalColor;
             }
-        }
+        }*/
 
         // Renderizar todos los modelos
         glUseProgram(shaderProgram);
