@@ -108,6 +108,9 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         if (ImGui::BeginMenu("Archivo")) {
             if (ImGui::MenuItem("Importar Modelo (Ctrl+O)")) {
                 SceneManager::ImportModel(models);
+                if (!models.empty() && models.back().hasTexture) {
+                    state.renderMode = 1; 
+                }
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Guardar Escena (Ctrl+S)")) {
@@ -116,6 +119,12 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             if (ImGui::MenuItem("Cargar Escena (Ctrl+L)")) {
                 selectedModelIndex = -1;
                 SceneManager::Load("scene.txt", models);
+                for (const auto& m : models) {
+                    if (m.hasTexture) { 
+                        state.renderMode = 1; 
+                        break; 
+                    }
+                }
             }
             if (ImGui::MenuItem("Limpiar Escena (Ctrl+N)")) {
                 selectedModelIndex = -1;
@@ -174,28 +183,52 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
 
             // Estilo de Renderizado
             ImGui::Text("Estilo de Renderizado");
-            const char* renderModes[] = { "1. Solida / Textura", "2. Sin Iluminacion", "3. Normal (Phong)", "4. Caricatura", "5. Boceto", "6. Holograma" };
-            ImGui::Combo("##RenderMode", &state.renderMode, renderModes, IM_ARRAYSIZE(renderModes));
+            const char* renderModes[] = { 
+                "1. Vista Solida", 
+                "2. Vista con Textura", 
+                "3. Sin Iluminacion", 
+                "4. Normal (Phong)", 
+                "5. Caricatura", 
+                "6. Boceto", 
+                "7. Holograma" 
+            };
 
-            ImGui::Separator();
-            
-            // Color del Relleno (Logic para modelos)
-            if (!models.empty()) {
-                ImGui::Checkbox("Sobrescribir Color Base", &state.enableColorChange);
-                if (state.enableColorChange) {
-                    ImGui::Indent();
-                    ImGui::ColorEdit3("Color Base", (float*)&state.newColor);
-                    ImGui::SameLine(); HelpMarker("Cambia el color de todos los modelos no seleccionados");
-                    
-                    // Aplicar lógica aquí mismo para simplificar main
-                    for (size_t i = 0; i < models.size(); ++i) {
-                        if (static_cast<int>(i) != selectedModelIndex) {
-                            models[i].color = state.newColor;
-                        }
-                    }
-                    ImGui::Unindent();
+            // 1. Verificar si hay texturas en la escena actual
+            bool hasAnyTexture = false;
+            for (const auto& m : models) {
+                if (m.hasTexture) {
+                    hasAnyTexture = true;
+                    break;
                 }
             }
+
+            // 2. Prevención de errores: Si estábamos en modo Textura y borramos el modelo, forzar a Sólido
+            if (!hasAnyTexture && state.renderMode == 1) {
+                state.renderMode = 0; 
+            }
+
+            // 3. Crear el Combo personalizado
+            if (ImGui::BeginCombo("##RenderMode", renderModes[state.renderMode])) {
+                for (int n = 0; n < IM_ARRAYSIZE(renderModes); n++) {
+                    bool is_selected = (state.renderMode == n);
+                    ImGuiSelectableFlags flags = 0;
+                    
+                    // Deshabilitar la opción "Vista con Textura" (índice 1) si no hay texturas
+                    if (n == 1 && !hasAnyTexture) {
+                        flags = ImGuiSelectableFlags_Disabled;
+                    }
+
+                    if (ImGui::Selectable(renderModes[n], is_selected, flags)) {
+                        state.renderMode = n;
+                    }
+
+                    if (is_selected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
+            }
+            ImGui::Separator();
         }
 
         // SECCIÓN: Selección

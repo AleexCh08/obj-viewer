@@ -68,7 +68,16 @@ R"(
       
         // 1. OBTENER COLOR BASE (Textura o Color Plano)
         vec4 baseColor;
-        if (hasTexture == 1) {
+        
+        // Determinar si debemos usar textura en este modo
+        bool useTex = (hasTexture == 1);
+        if (renderMode == 0) {
+            useTex = false; // Vista Sólida: IGNORA texturas siempre
+        } else if (renderMode == 1) {
+            useTex = (hasTexture == 1); // Vista Textura: usa si tiene
+        }
+
+        if (useTex) {
             baseColor = texture(texture1, TexCoords);
         } else {
             vec3 currentColor = objectColor;
@@ -78,8 +87,25 @@ R"(
         }
 
         // 2. APLICAR ESTILO SEGÚN EL RENDER MODE
-        if (renderMode == 0) {
-            // MODO 0: Vista Sólida / Textura (Iluminación estándar base)
+        if (renderMode == 0 || renderMode == 1) {
+            // MODOS 0 y 1: Sólido y Textura (Iluminación mate básica)
+            float ambientStrength = 0.4;
+            vec3 ambient = ambientStrength * lightColor;
+
+            vec3 norm = normalize(Normal);
+            vec3 lightDir = normalize(lightPos - FragPos);
+            float diff = max(dot(norm, lightDir), 0.0);
+            vec3 diffuse = diff * lightColor;
+
+            vec3 lighting = (ambient + diffuse);
+            FragColor = vec4(lighting * baseColor.rgb, baseColor.a);
+        }
+        else if (renderMode == 2) {
+            // MODO 2: Sin iluminación (Color o textura pura)
+            FragColor = baseColor;
+        }
+        else if (renderMode == 3) {
+            // MODO 3: Normal / Iluminación (Phong completo con brillo especular)
             float ambientStrength = 0.1;
             vec3 ambient = ambientStrength * lightColor;
 
@@ -98,7 +124,7 @@ R"(
             FragColor = vec4(lighting * baseColor.rgb, baseColor.a);
         }
         else {
-            // Fallback por defecto temporal
+            // Fallback para modos no programados aún
             FragColor = baseColor; 
         }
     }

@@ -242,6 +242,9 @@ int main() {
         if (ctrlPressed && glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
             if (!isImporting) {
                 SceneManager::ImportModel(models);
+                if (!models.empty() && models.back().hasTexture) {
+                    ui.renderMode = 1; // Cambiar a Vista con Textura
+                }
                 isImporting = true; 
             }
         } else {
@@ -265,6 +268,12 @@ int main() {
             if (!isLoading) {
                 selectedModelIndex = -1;
                 SceneManager::Load("scene.txt", models);
+                for (const auto& m : models) {
+                    if (m.hasTexture) { 
+                        ui.renderMode = 1; 
+                        break; 
+                    }
+                }
                 isLoading = true;
             }
         } else {
