@@ -57,24 +57,21 @@ R"(
     uniform sampler2D texture1;
     uniform int hasTexture;
     
-    uniform int renderMode; // NUEVA VARIABLE PARA CONTROLAR EL ESTILO
+    uniform int renderMode;
 
     void main() {
-        // Excepciones para depuración y luces (se dibujan sin afectar el estilo)
         if (isLightSource == 1) { FragColor = vec4(objectColor, 1.0); return; }
         if (isGrid) { FragColor = vec4(gridColor, 1.0); return; }
         if (useBoundingBoxColor) { FragColor = vec4(boundingBoxColor, 1.0); return; }
         if (useNormalsColor) { FragColor = vec4(normalsColor, 1.0); return; }
       
-        // 1. OBTENER COLOR BASE (Textura o Color Plano)
         vec4 baseColor;
         
-        // Determinar si debemos usar textura en este modo
         bool useTex = (hasTexture == 1);
         if (renderMode == 0) {
-            useTex = false; // Vista Sólida: IGNORA texturas siempre
+            useTex = false; 
         } else if (renderMode == 1) {
-            useTex = (hasTexture == 1); // Vista Textura: usa si tiene
+            useTex = (hasTexture == 1); 
         }
 
         if (useTex) {
@@ -86,9 +83,7 @@ R"(
             baseColor = vec4(currentColor, 1.0);
         }
 
-        // 2. APLICAR ESTILO SEGÚN EL RENDER MODE
         if (renderMode == 0 || renderMode == 1) {
-            // MODOS 0 y 1: Sólido y Textura (Iluminación mate básica)
             float ambientStrength = 0.4;
             vec3 ambient = ambientStrength * lightColor;
 
@@ -101,11 +96,9 @@ R"(
             FragColor = vec4(lighting * baseColor.rgb, baseColor.a);
         }
         else if (renderMode == 2) {
-            // MODO 2: Sin iluminación (Color o textura pura)
             FragColor = baseColor;
         }
         else if (renderMode == 3) {
-            // MODO 3: Normal / Iluminación (Phong completo con brillo especular)
             float ambientStrength = 0.1;
             vec3 ambient = ambientStrength * lightColor;
 
@@ -123,15 +116,13 @@ R"(
             vec3 lighting = (ambient + diffuse + specular);
             FragColor = vec4(lighting * baseColor.rgb, baseColor.a);
         } else if (renderMode == 4) {
-            // MODO 4: Estilo Caricatura (Cel Shading)
-            float ambientStrength = 0.3; // Añadimos luz base para evitar oscuridad total
+            float ambientStrength = 0.3; 
             vec3 ambient = ambientStrength * lightColor;
 
             vec3 norm = normalize(Normal);
             vec3 lightDir = normalize(lightPos - FragPos);
             vec3 viewDir = normalize(viewPos - FragPos);
 
-            // 1. Discretizar la luz difusa en "escalones" duros
             float diff = max(dot(norm, lightDir), 0.0);
             float celDiff;
             if (diff > 0.8) celDiff = 1.0;
@@ -141,32 +132,23 @@ R"(
 
             vec3 diffuse = celDiff * lightColor;
 
-            // 2. Simular un contorno (Outline) negro en los bordes
             float rim = max(dot(viewDir, norm), 0.0);
             float outline = (rim < 0.25) ? 0.0 : 1.0;
 
-            // Multiplicamos la suma de luz por el color base y aplicamos el contorno
             FragColor = vec4((ambient + diffuse) * baseColor.rgb * outline, baseColor.a);
         } else if (renderMode == 5) {
-            // MODO 5: Estilo Boceto (Procedural Hatching)
             vec3 norm = normalize(Normal);
             vec3 lightDir = normalize(lightPos - FragPos);
-            
-            // Calculamos la intensidad de la luz (0.0 oscuro, 1.0 iluminado)
             float intensity = max(dot(norm, lightDir), 0.0);
 
-            // Obtenemos los pixeles de la pantalla para dibujar las lineas
             float x = gl_FragCoord.x;
             float y = gl_FragCoord.y;
 
-            // Colores del "lapiz" y del "papel" (usamos el color base como papel)
             vec3 pencilColor = vec3(0.1, 0.1, 0.1); // Gris muy oscuro
             vec3 paperColor = baseColor.rgb;
 
-            // Variable que define si pintamos lapiz (0.0) o papel (1.0)
             float sketch = 1.0;
 
-            // Dependiendo de la oscuridad, añadimos capas de lineas cruzadas
             if (intensity < 0.8) {
                 if (mod(x + y, 10.0) < 1.0) sketch = 0.0; // Lineas diagonales /
             }
@@ -180,16 +162,27 @@ R"(
                 if (mod(x - y - 5.0, 10.0) < 1.0) sketch = 0.0; // Mas densidad \
             }
 
-            // Aplicamos un contorno suave adicional para enmarcar el boceto
             vec3 viewDir = normalize(viewPos - FragPos);
             float rim = max(dot(viewDir, norm), 0.0);
             if (rim < 0.2) sketch = 0.0; // Borde oscuro
 
-            // Mezclamos el color del lapiz y el papel segun el patron
             FragColor = vec4(mix(pencilColor, paperColor, sketch), baseColor.a);
+        } else if (renderMode == 6) {
+            vec3 norm = normalize(Normal);
+            vec3 viewDir = normalize(viewPos - FragPos);
+
+            float rim = 1.0 - max(dot(viewDir, norm), 0.0);
+            float rimGlow = pow(rim, 3.0) * 1.5; 
+
+            float scanline = sin(gl_FragCoord.y * 2.0) * 0.2 + 0.8;
+            vec3 holoColor = mix(baseColor.rgb, vec3(0.1, 0.8, 1.0), 0.6);
+
+            vec3 finalColor = (holoColor * 0.2 + holoColor * rimGlow) * scanline;
+            float alpha = clamp(rimGlow + 0.15, 0.0, 0.85);
+
+            FragColor = vec4(finalColor, alpha);
         }
         else {
-            // Fallback para modos no programados aún
             FragColor = baseColor; 
         }
     }

@@ -53,7 +53,7 @@ int main() {
     glfwSetScrollCallback(window, ScrollCallback);
 
     glm::vec3 bgColor(0.46f, 0.46f, 0.46f); // Color de fondo inicial
-    
+
     std::vector<Model> models; 
     SceneManager::AddLight(models);
     if (!models.empty()) {
@@ -104,6 +104,10 @@ int main() {
         } else {
             glDisable(GL_MULTISAMPLE); 
         }
+
+        // Activar el blending
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
         // Actualizar el color de fondo y limpiar buffers
         InputController::changeBackgroundColor(window, bgColor);
