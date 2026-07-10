@@ -224,15 +224,30 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
                 
                 if (ImGui::BeginTabItem("Transformación")) {
                     ImGui::Spacing();
+                    
+                    float itemW = (ImGui::GetContentRegionAvail().x - 90.0f) / 3.0f;
+                    float alignRButton = ImGui::GetContentRegionAvail().x - 24.0f - ImGui::GetStyle().ItemSpacing.x;
+
                     if (currentModel.isLight) {
                         ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "FUENTE DE LUZ (ID: %d)", selectedModelIndex);
                         ImGui::Separator();
+                        ImGui::Spacing();
                         
-                        ImGui::Text("Posición (X, Y, Z)");
-                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 30); // Deja espacio para el botón R
-                        if (ImGui::DragFloat3("##PosLight", (float*)&currentModel.position, 0.05f)) currentModel.updateTransformMatrix();
-                        ImGui::SameLine();
-                        if (ImGui::Button("R##RPosL", ImVec2(22, 0))) { currentModel.position = glm::vec3(0.0f); currentModel.updateTransformMatrix(); }
+                        ImGui::Text("Posición");
+                        ImGui::AlignTextToFramePadding();
+                        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "X"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        if (ImGui::DragFloat("##LPX", &currentModel.position.x, 0.05f)) currentModel.updateTransformMatrix(); ImGui::SameLine();
+                        
+                        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Y"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        if (ImGui::DragFloat("##LPY", &currentModel.position.y, 0.05f)) currentModel.updateTransformMatrix(); ImGui::SameLine();
+                        
+                        ImGui::TextColored(ImVec4(0.4f, 0.6f, 1.0f, 1.0f), "Z"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        if (ImGui::DragFloat("##LPZ", &currentModel.position.z, 0.05f)) currentModel.updateTransformMatrix(); ImGui::SameLine();
+                        
+                        if (ImGui::Button("R##LRPos", ImVec2(24, 0))) { currentModel.position = glm::vec3(0.0f); currentModel.updateTransformMatrix(); }
                         
                         ImGui::Spacing();
                         ImGui::Text("Color / Intensidad");
@@ -241,36 +256,72 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
                     } else {
                         ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.6f, 1.0f), "MODELO SELECCIONADO (ID: %d)", selectedModelIndex);
                         ImGui::Separator();
-
-                        ImGui::Text("Posición (X, Y, Z)");
-                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 30);
-                        if (ImGui::DragFloat3("##Pos", (float*)&currentModel.position, 0.05f)) currentModel.updateTransformMatrix();
-                        ImGui::SameLine();
-                        if (ImGui::Button("R##RPos", ImVec2(22, 0))) { currentModel.position = glm::vec3(0.0f); currentModel.updateTransformMatrix(); }
-
                         ImGui::Spacing();
-                        ImGui::Text("Rotación (X, Y, Z)");
-                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 30);
-                        if (ImGui::DragFloat3("##Rot", (float*)&currentModel.rotation, 0.5f)) currentModel.updateTransformMatrix();
-                        ImGui::SameLine();
-                        if (ImGui::Button("R##RRot", ImVec2(22, 0))) { currentModel.rotation = glm::vec3(0.0f); currentModel.updateTransformMatrix(); }
 
+                        // --- POSICIÓN ---
+                        ImGui::Text("Posición");
+                        ImGui::AlignTextToFramePadding();
+                        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "X"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        if (ImGui::DragFloat("##PX", &currentModel.position.x, 0.05f)) currentModel.updateTransformMatrix(); ImGui::SameLine();
+                        
+                        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Y"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        if (ImGui::DragFloat("##PY", &currentModel.position.y, 0.05f)) currentModel.updateTransformMatrix(); ImGui::SameLine();
+                        
+                        ImGui::TextColored(ImVec4(0.4f, 0.6f, 1.0f, 1.0f), "Z"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        if (ImGui::DragFloat("##PZ", &currentModel.position.z, 0.05f)) currentModel.updateTransformMatrix(); ImGui::SameLine();
+                        
+                        if (ImGui::Button("R##RPos", ImVec2(24, 0))) { currentModel.position = glm::vec3(0.0f); currentModel.updateTransformMatrix(); }
                         ImGui::Spacing();
-                        ImGui::Text("Escala Individual (X, Y, Z)");
-                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 30);
-                        if (ImGui::DragFloat3("##Scl", (float*)&currentModel.scale, 0.02f, 0.01f, 100.0f, "%.2f")) {
+
+                        // --- ROTACIÓN ---
+                        ImGui::Text("Rotación");
+                        ImGui::AlignTextToFramePadding();
+                        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "X"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        if (ImGui::DragFloat("##RX", &currentModel.rotation.x, 0.5f)) currentModel.updateTransformMatrix(); ImGui::SameLine();
+                        
+                        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Y"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        if (ImGui::DragFloat("##RY", &currentModel.rotation.y, 0.5f)) currentModel.updateTransformMatrix(); ImGui::SameLine();
+                        
+                        ImGui::TextColored(ImVec4(0.4f, 0.6f, 1.0f, 1.0f), "Z"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        if (ImGui::DragFloat("##RZ", &currentModel.rotation.z, 0.5f)) currentModel.updateTransformMatrix(); ImGui::SameLine();
+                        
+                        if (ImGui::Button("R##RRot", ImVec2(24, 0))) { currentModel.rotation = glm::vec3(0.0f); currentModel.updateTransformMatrix(); }
+                        ImGui::Spacing();
+
+                        // --- ESCALA INDIVIDUAL ---
+                        ImGui::Text("Escala Individual");
+                        ImGui::AlignTextToFramePadding();
+                        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "X"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        bool sX = ImGui::DragFloat("##SX", &currentModel.scale.x, 0.02f, 0.01f, 100.0f, "%.2f"); ImGui::SameLine();
+                        
+                        ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Y"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        bool sY = ImGui::DragFloat("##SY", &currentModel.scale.y, 0.02f, 0.01f, 100.0f, "%.2f"); ImGui::SameLine();
+                        
+                        ImGui::TextColored(ImVec4(0.4f, 0.6f, 1.0f, 1.0f), "Z"); ImGui::SameLine(0, 2);
+                        ImGui::SetNextItemWidth(itemW);
+                        bool sZ = ImGui::DragFloat("##SZ", &currentModel.scale.z, 0.02f, 0.01f, 100.0f, "%.2f"); ImGui::SameLine();
+                        
+                        if (sX || sY || sZ) {
                             if(currentModel.scale.x < 0.01f) currentModel.scale.x = 0.01f;
                             if(currentModel.scale.y < 0.01f) currentModel.scale.y = 0.01f;
                             if(currentModel.scale.z < 0.01f) currentModel.scale.z = 0.01f;
                             currentModel.updateTransformMatrix();
                         }
-                        ImGui::SameLine();
-                        if (ImGui::Button("R##RScl", ImVec2(22, 0))) { currentModel.scale = glm::vec3(1.0f); currentModel.updateTransformMatrix(); }
-
+                        if (ImGui::Button("R##RScl", ImVec2(24, 0))) { currentModel.scale = glm::vec3(1.0f); currentModel.updateTransformMatrix(); }
                         ImGui::Spacing();
+
+                        // --- ESCALA UNIFORME ---
                         ImGui::Text("Escala Uniforme");
                         float uScale = currentModel.scale.x; 
-                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 30);
+                        ImGui::SetNextItemWidth(alignRButton); 
                         if (ImGui::DragFloat("##Uniform", &uScale, 0.02f, 0.01f, 100.0f, "%.2f")) {
                             currentModel.scale = glm::vec3(uScale);
                             if (currentModel.scale.x < 0.01f) currentModel.scale = glm::vec3(0.01f);
@@ -280,10 +331,7 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
 
                     ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
 
-                    // Calculamos el ancho de la ventana actual para centrar los botones
                     float windowWidth = ImGui::GetWindowSize().x;
-                    
-                    // Botón Deseleccionar (Ancho del texto + 30px de padding)
                     float deselWidth = ImGui::CalcTextSize("Deseleccionar").x + 30.0f; 
                     ImGui::SetCursorPosX((windowWidth - deselWidth) * 0.5f);
                     if (ImGui::Button("Deseleccionar", ImVec2(deselWidth, 30))) selectedModelIndex = -1;
@@ -293,7 +341,6 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
                         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
                         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
                         
-                        // Botón Eliminar (Ancho del texto + 30px de padding)
                         float elimWidth = ImGui::CalcTextSize("ELIMINAR MODELO").x + 30.0f;
                         ImGui::SetCursorPosX((windowWidth - elimWidth) * 0.5f);
                         if (ImGui::Button("ELIMINAR MODELO", ImVec2(elimWidth, 30))) {
