@@ -53,6 +53,7 @@ int main() {
     glfwSetScrollCallback(window, ScrollCallback);
 
     glm::vec3 bgColor(0.46f, 0.46f, 0.46f); // Color de fondo inicial
+    
     std::vector<Model> models; 
     SceneManager::AddLight(models);
     if (!models.empty()) {
@@ -173,7 +174,9 @@ int main() {
         glUseProgram(shaderProgram);
         glUniform1i(glGetUniformLocation(shaderProgram, "renderMode"), ui.renderMode);
         glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera.getViewMatrix()));
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));       
+        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera.getProjectionMatrix()));
+        glm::vec3 camPos = glm::vec3(glm::inverse(camera.getViewMatrix())[3]);
+        glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, glm::value_ptr(camPos));       
         
         if (ui.showVertices) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);

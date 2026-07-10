@@ -122,6 +122,31 @@ R"(
 
             vec3 lighting = (ambient + diffuse + specular);
             FragColor = vec4(lighting * baseColor.rgb, baseColor.a);
+        } else if (renderMode == 4) {
+            // MODO 4: Estilo Caricatura (Cel Shading)
+            float ambientStrength = 0.3; // Añadimos luz base para evitar oscuridad total
+            vec3 ambient = ambientStrength * lightColor;
+
+            vec3 norm = normalize(Normal);
+            vec3 lightDir = normalize(lightPos - FragPos);
+            vec3 viewDir = normalize(viewPos - FragPos);
+
+            // 1. Discretizar la luz difusa en "escalones" duros
+            float diff = max(dot(norm, lightDir), 0.0);
+            float celDiff;
+            if (diff > 0.8) celDiff = 1.0;
+            else if (diff > 0.5) celDiff = 0.6;
+            else if (diff > 0.2) celDiff = 0.3;
+            else celDiff = 0.0; 
+
+            vec3 diffuse = celDiff * lightColor;
+
+            // 2. Simular un contorno (Outline) negro en los bordes
+            float rim = max(dot(viewDir, norm), 0.0);
+            float outline = (rim < 0.25) ? 0.0 : 1.0;
+
+            // Multiplicamos la suma de luz por el color base y aplicamos el contorno
+            FragColor = vec4((ambient + diffuse) * baseColor.rgb * outline, baseColor.a);
         }
         else {
             // Fallback para modos no programados aún
