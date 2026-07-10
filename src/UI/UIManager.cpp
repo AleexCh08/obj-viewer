@@ -150,9 +150,9 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
     if (state.showPropertiesPanel) {
         // 2. PANEL LATERAL (Inspector)
         ImGui::SetNextWindowPos(ImVec2(10, 35), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(340, 500), ImGuiCond_FirstUseEver);
+        //ImGui::SetNextWindowSize(ImVec2(340, 500), ImGuiCond_FirstUseEver);
 
-        ImGui::Begin("Inspector", &state.showPropertiesPanel);
+        ImGui::Begin("Inspector", &state.showPropertiesPanel, ImGuiWindowFlags_AlwaysAutoResize);
 
         // Nielsen: Diseño Estético y Minimalista (Uso de Pestañas en lugar de lista larga)
         if (ImGui::BeginTabBar("InspectorTabs")) {
