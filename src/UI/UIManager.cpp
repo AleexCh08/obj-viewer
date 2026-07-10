@@ -79,14 +79,18 @@ void UIManager::Init(GLFWwindow* window) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     
-    // --- ESTILO PRO ---
+    // --- ESTILO PRO (Mejorado para Usabilidad) ---
     ImGui::StyleColorsDark();
     ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 5.0f;     
+    style.WindowRounding = 6.0f;     
     style.FrameRounding = 4.0f;      
     style.GrabRounding = 4.0f;       
-    style.FramePadding = ImVec2(5, 5); 
-    style.ItemSpacing = ImVec2(8, 6);  
+    style.FramePadding = ImVec2(6, 6); 
+    style.ItemSpacing = ImVec2(8, 8);
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.12f, 0.12f, 0.12f, 0.94f); // Fondo ligeramente más oscuro para contraste
+    style.Colors[ImGuiCol_Header] = ImVec4(0.20f, 0.20f, 0.20f, 1.0f);
+    style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.30f, 0.30f, 0.30f, 1.0f);
+    style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.25f, 0.25f, 0.25f, 1.0f);
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
@@ -103,20 +107,20 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    // 1. BARRA DE MENÚ SUPERIOR
+    // 1. BARRA DE MENÚ SUPERIOR (Nielsen: Consistencia y Estándares)
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("Archivo")) {
-            if (ImGui::MenuItem("Importar Modelo (Ctrl+O)")) {
+            if (ImGui::MenuItem("Importar Modelo", "Ctrl+O")) {
                 SceneManager::ImportModel(models);
                 if (!models.empty() && models.back().hasTexture) {
                     state.renderMode = 1; 
                 }
             }
             ImGui::Separator();
-            if (ImGui::MenuItem("Guardar Escena (Ctrl+S)")) {
+            if (ImGui::MenuItem("Guardar Escena", "Ctrl+S")) {
                 SceneManager::Save("scene.txt", models);
             }
-            if (ImGui::MenuItem("Cargar Escena (Ctrl+L)")) {
+            if (ImGui::MenuItem("Cargar Escena", "Ctrl+L")) {
                 selectedModelIndex = -1;
                 SceneManager::Load("scene.txt", models);
                 for (const auto& m : models) {
@@ -126,12 +130,12 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
                     }
                 }
             }
-            if (ImGui::MenuItem("Limpiar Escena (Ctrl+N)")) {
+            if (ImGui::MenuItem("Limpiar Escena", "Ctrl+N")) {
                 selectedModelIndex = -1;
                 SceneManager::Clear(models);
             }
             ImGui::Separator();
-            if (ImGui::MenuItem("Salir (Esc)")) {
+            if (ImGui::MenuItem("Salir", "Esc")) {
                 glfwSetWindowShouldClose(window, true);
             }
             ImGui::EndMenu();
@@ -144,123 +148,134 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
     }
 
     if (state.showPropertiesPanel) {
-    // 2. PANEL LATERAL (Inspector)
-    // Fijamos una posición y tamaño por defecto para la primera vez
-        ImGui::SetNextWindowPos(ImVec2(10, 30), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(300, 500), ImGuiCond_FirstUseEver);
+        // 2. PANEL LATERAL (Inspector)
+        ImGui::SetNextWindowPos(ImVec2(10, 35), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(340, 500), ImGuiCond_FirstUseEver);
 
-        ImGui::Begin("Inspector de Propiedades");
+        ImGui::Begin("Inspector", &state.showPropertiesPanel);
 
-        // SECCIÓN: Geometría y Estilo
-        if (ImGui::CollapsingHeader("Visualización del Modelo", ImGuiTreeNodeFlags_DefaultOpen)) {
+        // Nielsen: Diseño Estético y Minimalista (Uso de Pestañas en lugar de lista larga)
+        if (ImGui::BeginTabBar("InspectorTabs")) {
             
-            // Vértices
-            ImGui::Checkbox("Mostrar Vértices", &state.showVertices);
-            if (state.showVertices) {
-                ImGui::Indent();
-                ImGui::ColorEdit3("Color Vértices", (float*)&state.vertexColor, ImGuiColorEditFlags_NoInputs);
-                ImGui::SliderFloat("Tamaño", &state.vertexSize, 1.0f, 10.0f);
-                ImGui::Unindent();
-            }
+            // --- PESTAÑA 1: APARIENCIA ---
+            if (ImGui::BeginTabItem("Apariencia")) {
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "ESTILO VISUAL");
+                ImGui::Separator();
+                
+                const char* renderModes[] = { 
+                    "1. Vista Solida", "2. Vista con Textura", "3. Sin Iluminacion", 
+                    "4. Normal (Phong)", "5. Caricatura", "6. Boceto", "7. Holograma" 
+                };
 
-            // Alambrado (Wireframe)
-            ImGui::Checkbox("Mostrar Alambrado", &state.showWireframe);
-            if (state.showWireframe) {
-                ImGui::Indent();
-                ImGui::ColorEdit3("Color Líneas", (float*)&state.wireframeColor, ImGuiColorEditFlags_NoInputs);
-                ImGui::Unindent();
-            }
-
-            // Normales
-            ImGui::Checkbox("Mostrar Normales", &state.showNormals);
-            if (state.showNormals) {
-                ImGui::Indent();
-                ImGui::ColorEdit3("Color Normales", (float*)&state.normalsColor, ImGuiColorEditFlags_NoInputs);
-                ImGui::Unindent();
-            }
-            
-            ImGui::Separator();
-
-            // Estilo de Renderizado
-            ImGui::Text("Estilo de Renderizado");
-            const char* renderModes[] = { 
-                "1. Vista Solida", 
-                "2. Vista con Textura", 
-                "3. Sin Iluminacion", 
-                "4. Normal (Phong)", 
-                "5. Caricatura", 
-                "6. Boceto", 
-                "7. Holograma" 
-            };
-
-            // 1. Verificar si hay texturas en la escena actual
-            bool hasAnyTexture = false;
-            for (const auto& m : models) {
-                if (m.hasTexture) {
-                    hasAnyTexture = true;
-                    break;
+                bool hasAnyTexture = false;
+                for (const auto& m : models) {
+                    if (m.hasTexture) { hasAnyTexture = true; break; }
                 }
-            }
 
-            // 2. Prevención de errores: Si estábamos en modo Textura y borramos el modelo, forzar a Sólido
-            if (!hasAnyTexture && state.renderMode == 1) {
-                state.renderMode = 0; 
-            }
+                if (!hasAnyTexture && state.renderMode == 1) state.renderMode = 0; 
 
-            // 3. Crear el Combo personalizado
-            if (ImGui::BeginCombo("##RenderMode", renderModes[state.renderMode])) {
-                for (int n = 0; n < IM_ARRAYSIZE(renderModes); n++) {
-                    bool is_selected = (state.renderMode == n);
-                    ImGuiSelectableFlags flags = 0;
-                    
-                    // Deshabilitar la opción "Vista con Textura" (índice 1) si no hay texturas
-                    if (n == 1 && !hasAnyTexture) {
-                        flags = ImGuiSelectableFlags_Disabled;
+                ImGui::SetNextItemWidth(-1); // Ocupar todo el ancho
+                if (ImGui::BeginCombo("##RenderMode", renderModes[state.renderMode])) {
+                    for (int n = 0; n < IM_ARRAYSIZE(renderModes); n++) {
+                        bool is_selected = (state.renderMode == n);
+                        ImGuiSelectableFlags flags = (n == 1 && !hasAnyTexture) ? ImGuiSelectableFlags_Disabled : 0;
+
+                        if (ImGui::Selectable(renderModes[n], is_selected, flags)) state.renderMode = n;
+                        if (is_selected) ImGui::SetItemDefaultFocus();
                     }
-
-                    if (ImGui::Selectable(renderModes[n], is_selected, flags)) {
-                        state.renderMode = n;
-                    }
-
-                    if (is_selected) {
-                        ImGui::SetItemDefaultFocus();
-                    }
+                    ImGui::EndCombo();
                 }
-                ImGui::EndCombo();
+
+                ImGui::Spacing();
+                ImGui::Spacing();
+                
+                ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "COLOR GLOBAL");
+                ImGui::Separator();
+                if (!models.empty()) {
+                    ImGui::Checkbox("Sobrescribir Color Base", &state.enableColorChange);
+                    if (state.enableColorChange) {
+                        ImGui::SetNextItemWidth(-1);
+                        ImGui::ColorEdit3("##NewColor", (float*)&state.newColor);
+                        
+                        for (size_t i = 0; i < models.size(); ++i) {
+                            if (static_cast<int>(i) != selectedModelIndex) {
+                                models[i].color = state.newColor;
+                            }
+                        }
+                    }
+                } else {
+                    ImGui::TextDisabled("No hay modelos en la escena.");
+                }
+                ImGui::EndTabItem();
             }
-            ImGui::Separator();
-        }
 
-        // SECCIÓN: Selección
-        if (ImGui::CollapsingHeader("Selección y Debug")) {
-            ImGui::Checkbox("Mostrar Bounding Box", &state.showBoundingBox);
-            if (state.showBoundingBox) {
-                ImGui::SameLine();
-                ImGui::ColorEdit3("##BoxColor", (float*)&state.boundingBoxColor, ImGuiColorEditFlags_NoInputs);
+            // --- PESTAÑA 2: MALLA Y DEBUG ---
+            if (ImGui::BeginTabItem("Malla & Debug")) {
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "GEOMETRÍA");
+                ImGui::Separator();
+                
+                ImGui::Checkbox("Vértices", &state.showVertices);
+                if (state.showVertices) {
+                    ImGui::Indent();
+                    ImGui::ColorEdit3("Color", (float*)&state.vertexColor, ImGuiColorEditFlags_NoInputs);
+                    ImGui::SliderFloat("Tamaño", &state.vertexSize, 1.0f, 10.0f);
+                    ImGui::Unindent();
+                }
+
+                ImGui::Checkbox("Alambrado (Wireframe)", &state.showWireframe);
+                if (state.showWireframe) {
+                    ImGui::Indent();
+                    ImGui::ColorEdit3("Color Líneas", (float*)&state.wireframeColor, ImGuiColorEditFlags_NoInputs);
+                    ImGui::Unindent();
+                }
+
+                ImGui::Checkbox("Normales", &state.showNormals);
+                if (state.showNormals) {
+                    ImGui::Indent();
+                    ImGui::ColorEdit3("Color Normales", (float*)&state.normalsColor, ImGuiColorEditFlags_NoInputs);
+                    ImGui::Unindent();
+                }
+
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "HERRAMIENTAS");
+                ImGui::Separator();
+                
+                ImGui::Checkbox("Caja delimitadora (Bounding Box)", &state.showBoundingBox);
+                if (state.showBoundingBox) {
+                    ImGui::Indent();
+                    ImGui::ColorEdit3("Color Caja", (float*)&state.boundingBoxColor, ImGuiColorEditFlags_NoInputs);
+                    ImGui::Unindent();
+                }
+                ImGui::EndTabItem();
             }
-            
-            if (selectedModelIndex != -1) {
-                ImGui::TextColored(ImVec4(0,1,0,1), "Modelo Seleccionado: ID %d", selectedModelIndex);
-            } else {
-                ImGui::TextDisabled("Ningún modelo seleccionado");
+
+            // --- PESTAÑA 3: MOTOR ---
+            if (ImGui::BeginTabItem("Motor")) {
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "GRÁFICOS");
+                ImGui::Separator();
+
+                ImGui::Checkbox("Z-buffer (Depth Test)", &state.enableDepthTest);
+                ImGui::SameLine(); HelpMarker("Evita que objetos lejanos se dibujen sobre los cercanos.");
+
+                ImGui::Checkbox("Culling (Caras traseras)", &state.enableBackFaceCulling);
+                ImGui::SameLine(); HelpMarker("No dibuja las caras traseras para ganar rendimiento.");
+
+                ImGui::Checkbox("Antialiasing (MSAA)", &state.enableAntialiasing);
+                ImGui::SameLine(); HelpMarker("Suaviza los bordes dentados.");
+                
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "INTERFAZ");
+                ImGui::Separator();
+                ImGui::Checkbox("Mostrar FPS", &state.showFPS);
+
+                ImGui::EndTabItem();
             }
+
+            ImGui::EndTabBar();
         }
-
-        // SECCIÓN: Configuración Motor
-        if (ImGui::CollapsingHeader("Configuración del Motor")) {
-            ImGui::Checkbox("Habilitar Z-buffer", &state.enableDepthTest);
-            ImGui::SameLine(); HelpMarker("Evita que objetos lejanos se dibujen sobre los cercanos.");
-
-            ImGui::Checkbox("Back-face Culling", &state.enableBackFaceCulling);
-            ImGui::SameLine(); HelpMarker("No dibuja las caras traseras para ganar rendimiento.");
-
-            ImGui::Checkbox("Antialiasing (MSAA)", &state.enableAntialiasing);
-            ImGui::SameLine(); HelpMarker("Suaviza los bordes dentados (Sierra).");
-            
-            ImGui::Separator();
-            ImGui::Checkbox("Mostrar ventana FPS flotante", &state.showFPS);
-        }
-
         ImGui::End(); // Fin Inspector
     }
 
@@ -274,51 +289,38 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
     }
 
     // 4. BARRA DE HERRAMIENTAS INFERIOR (Transformaciones)
-    // Solo mostrar si hay un modelo seleccionado
     if (selectedModelIndex != -1 && selectedModelIndex < (int)models.size()) {
         Model& currentModel = models[selectedModelIndex];
-
-        // --- LÓGICA DE TAMAÑO DINÁMICO ---
         ImGuiViewport* viewport = ImGui::GetMainViewport();
         
-        // Si es luz, ventana más pequeña (100px), si es modelo, normal (150px)
-        float panelHeight = currentModel.isLight ? 100.0f : 150.0f;
-        
+        float panelHeight = currentModel.isLight ? 110.0f : 160.0f;
         ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - panelHeight));
         ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, panelHeight));
-        ImGui::SetNextWindowBgAlpha(0.9f);
+        ImGui::SetNextWindowBgAlpha(0.95f); // Un poco más opaco para legibilidad
 
         ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
         ImGui::Begin("Transform Bar", NULL, flags);
 
         if (currentModel.isLight) {
-            // --- DISEÑO COMPACTO PARA LUZ ---
-            ImGui::AlignTextToFramePadding(); // Alinear texto verticalmente con botones
-            ImGui::TextColored(ImVec4(1, 1, 0, 1), "FUENTE DE LUZ");
-            
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextColored(ImVec4(1, 1, 0, 1), "FUENTE DE LUZ SELECCIONADA");
             ImGui::SameLine();
             ImGui::TextDisabled("| ID: %d", selectedModelIndex);
 
-            // Botón Deseleccionar alineado a la derecha
             float buttonWidth = 150.0f;
-            ImGui::SameLine(ImGui::GetWindowWidth() - buttonWidth - 20); 
-            if (ImGui::Button("Deseleccionar", ImVec2(buttonWidth, 0))) {
+            ImGui::SameLine(ImGui::GetWindowWidth() - buttonWidth - 10); 
+            if (ImGui::Button("Deseleccionar (Esc)", ImVec2(buttonWidth, 0))) {
                 selectedModelIndex = -1;
             }
 
             ImGui::Separator();
-
             ImGui::Columns(2, "LightCols", false);
             
-            // Col 1: Posición
             ImGui::Text("Posición");
-            if (DrawVec3Control("PosLight", currentModel.position, 0.0f, 0.02f)) {
-                currentModel.updateTransformMatrix();
-            }
+            if (DrawVec3Control("PosLight", currentModel.position, 0.0f, 0.02f)) currentModel.updateTransformMatrix();
             
             ImGui::NextColumn();
             
-            // Col 2: Color
             ImGui::Text("Color / Intensidad");
             ImGui::SetNextItemWidth(-1);
             ImGui::ColorEdit3("##LightColor", (float*)&currentModel.color);
@@ -326,12 +328,13 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             ImGui::EndColumns();
             
         } else {
-            // --- DISEÑO COMPLETO PARA MODELOS ---
-            ImGui::TextColored(ImVec4(1, 0.8f, 0, 1), "OBJETO SELECCIONADO: ID %d", selectedModelIndex);
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.6f, 1.0f), "MODELO SELECCIONADO");
+            ImGui::SameLine();
+            ImGui::TextDisabled("| ID: %d", selectedModelIndex);
             
-            // Botón Deseleccionar alineado a la derecha (opcional para modelos también)
-             float buttonWidth = 120.0f;
-            ImGui::SameLine(ImGui::GetWindowWidth() - buttonWidth - 20); 
+             float buttonWidth = 150.0f;
+            ImGui::SameLine(ImGui::GetWindowWidth() - buttonWidth - 10); 
              if (ImGui::Button("Deseleccionar", ImVec2(buttonWidth, 0))) {
                 selectedModelIndex = -1;
             }
@@ -339,21 +342,14 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             ImGui::Separator();
             ImGui::Columns(4, "TransformCols", false); 
 
-            // Posición
             ImGui::Text("Posición");
-            if (DrawVec3Control("Pos", currentModel.position, 0.0f, 0.02f)) {
-                currentModel.updateTransformMatrix();
-            }
+            if (DrawVec3Control("Pos", currentModel.position, 0.0f, 0.02f)) currentModel.updateTransformMatrix();
             ImGui::NextColumn();
 
-            // Rotación
             ImGui::Text("Rotación");
-            if (DrawVec3Control("Rot", currentModel.rotation, 0.0f, 0.5f)) {
-                currentModel.updateTransformMatrix();
-            }
+            if (DrawVec3Control("Rot", currentModel.rotation, 0.0f, 0.5f)) currentModel.updateTransformMatrix();
             ImGui::NextColumn();
 
-            // Escala
             ImGui::Text("Escala");
             if (DrawVec3Control("Scl", currentModel.scale, 1.0f, 0.02f)) {
                 if(currentModel.scale.x < 0.01f) currentModel.scale.x = 0.01f;
@@ -362,7 +358,7 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
                 currentModel.updateTransformMatrix();
             }
 
-            ImGui::Dummy(ImVec2(0.0f, 5.0f));
+            ImGui::Dummy(ImVec2(0.0f, 2.0f));
             ImGui::Text("Uniforme");
             float uScale = currentModel.scale.x; 
             
@@ -374,23 +370,20 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             }
             ImGui::NextColumn();
 
-            ImGui::Dummy(ImVec2(0, 35)); 
+            ImGui::Dummy(ImVec2(0, 25)); // Margen superior para centrar botón
+            // Nielsen: Prevención de errores (Hacer las acciones destructivas más obvias)
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
-                
-            if (ImGui::Button("ELIMINAR", ImVec2(-1, 40))) {
+            if (ImGui::Button("ELIMINAR MODELO", ImVec2(-1, 40))) {
                 SceneManager::DeleteSelectedModel(models, selectedModelIndex);
             }
             ImGui::PopStyleColor(2);
-        }   
-        
-        if (!currentModel.isLight) {
+            
             ImGui::EndColumns();
-        }
+        }   
         ImGui::End();   
     }
 
-    // Renderizar al final
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
