@@ -223,7 +223,7 @@ int main() {
             glPolygonOffset(-1.0f, -1.0f);
 
             // 2. CAPA SUPERPUESTA: Alambrado
-            if (ui.showWireframe) {
+            if (ui.showWireframe && !models[i].isLight) {
                 glUniform1f(glGetUniformLocation(shaderProgram, "globalAlpha"), 1.0f);
                 glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
                 glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 1);
@@ -233,7 +233,7 @@ int main() {
             }
 
             // 3. CAPA SUPERPUESTA: Vértices
-            if (ui.showVertices) {
+            if (ui.showVertices && !models[i].isLight) {
                 glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
                 glUniform1f(glGetUniformLocation(shaderProgram, "pointSize"), ui.vertexSize);
                 glUniform3fv(glGetUniformLocation(shaderProgram, "vertexColor"), 1, glm::value_ptr(ui.vertexColor));
@@ -248,7 +248,7 @@ int main() {
             
             // 4. CAPA SUPERPUESTA: Debug (Normales y Cajas)
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); 
-            if (ui.showNormals) {
+            if (ui.showNormals && !models[i].isLight) {
                 models[i].drawDebugNormals(shaderProgram, ui.normalsColor);
             }
             if (ui.showBoundingBox && selectedModelIndex == (int)i) {
