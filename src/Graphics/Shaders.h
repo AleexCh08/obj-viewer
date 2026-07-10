@@ -147,6 +147,46 @@ R"(
 
             // Multiplicamos la suma de luz por el color base y aplicamos el contorno
             FragColor = vec4((ambient + diffuse) * baseColor.rgb * outline, baseColor.a);
+        } else if (renderMode == 5) {
+            // MODO 5: Estilo Boceto (Procedural Hatching)
+            vec3 norm = normalize(Normal);
+            vec3 lightDir = normalize(lightPos - FragPos);
+            
+            // Calculamos la intensidad de la luz (0.0 oscuro, 1.0 iluminado)
+            float intensity = max(dot(norm, lightDir), 0.0);
+
+            // Obtenemos los pixeles de la pantalla para dibujar las lineas
+            float x = gl_FragCoord.x;
+            float y = gl_FragCoord.y;
+
+            // Colores del "lapiz" y del "papel" (usamos el color base como papel)
+            vec3 pencilColor = vec3(0.1, 0.1, 0.1); // Gris muy oscuro
+            vec3 paperColor = baseColor.rgb;
+
+            // Variable que define si pintamos lapiz (0.0) o papel (1.0)
+            float sketch = 1.0;
+
+            // Dependiendo de la oscuridad, añadimos capas de lineas cruzadas
+            if (intensity < 0.8) {
+                if (mod(x + y, 10.0) < 1.0) sketch = 0.0; // Lineas diagonales /
+            }
+            if (intensity < 0.5) {
+                if (mod(x - y, 10.0) < 1.0) sketch = 0.0; // Lineas diagonales cruzadas \
+            }
+            if (intensity < 0.3) {
+                if (mod(x + y - 5.0, 10.0) < 1.0) sketch = 0.0; // Mas densidad /
+            }
+            if (intensity < 0.15) {
+                if (mod(x - y - 5.0, 10.0) < 1.0) sketch = 0.0; // Mas densidad \
+            }
+
+            // Aplicamos un contorno suave adicional para enmarcar el boceto
+            vec3 viewDir = normalize(viewPos - FragPos);
+            float rim = max(dot(viewDir, norm), 0.0);
+            if (rim < 0.2) sketch = 0.0; // Borde oscuro
+
+            // Mezclamos el color del lapiz y el papel segun el patron
+            FragColor = vec4(mix(pencilColor, paperColor, sketch), baseColor.a);
         }
         else {
             // Fallback para modos no programados aún
