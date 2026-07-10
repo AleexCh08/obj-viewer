@@ -185,6 +185,7 @@ int main() {
         if (ui.showVertices) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
             glUniform1f(glGetUniformLocation(shaderProgram, "pointSize"), ui.vertexSize);
+            glUniform3fv(glGetUniformLocation(shaderProgram, "vertexColor"), 1, glm::value_ptr(ui.vertexColor));
             glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 1);
             glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
         } else if (ui.showWireframe) {           
