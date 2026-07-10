@@ -57,9 +57,6 @@ void Grid::draw(GLuint shaderProgram, const glm::mat4& view, const glm::mat4& pr
     
     // Dibujar principales (gruesas)
     glLineWidth(2.5f); 
-    // Nota: El cálculo '4 * (20 + 1)' es específico de tu configuración original (20 divisiones)
-    // Para hacerlo genérico, idealmente guardaríamos el conteo de vértices, pero por ahora usamos tu lógica:
-    // Asumimos que divisiones=20 para este draw call hardcodeado.
     glDrawArrays(GL_LINES, 0, 84); 
     
     // Dibujar secundarias (finas)
