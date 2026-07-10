@@ -58,6 +58,7 @@ R"(
     uniform int hasTexture;
     
     uniform int renderMode;
+    uniform float globalAlpha;
 
     void main() {
         if (isLightSource == 1) { FragColor = vec4(objectColor, 1.0); return; }
@@ -82,6 +83,7 @@ R"(
             else if (useWireframeColor) currentColor = wireframeColor;
             baseColor = vec4(currentColor, 1.0);
         }
+        baseColor.a *= globalAlpha;
 
         if (renderMode == 0 || renderMode == 1) {
             float ambientStrength = 0.4;

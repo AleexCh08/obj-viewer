@@ -214,6 +214,7 @@ int main() {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             glUniform1i(glGetUniformLocation(shaderProgram, "useVertexColor"), 0);
             glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 0);
+            glUniform1f(glGetUniformLocation(shaderProgram, "globalAlpha"), ui.showWireframe ? 0.5f : 1.0f);
             models[i].draw(shaderProgram);
 
             // Evitar el Z-fighting desplazando sutilmente la profundidad de líneas y puntos hacia la cámara
@@ -223,6 +224,7 @@ int main() {
 
             // 2. CAPA SUPERPUESTA: Alambrado
             if (ui.showWireframe) {
+                glUniform1f(glGetUniformLocation(shaderProgram, "globalAlpha"), 1.0f);
                 glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
                 glUniform1i(glGetUniformLocation(shaderProgram, "useWireframeColor"), 1);
                 glUniform3fv(glGetUniformLocation(shaderProgram, "wireframeColor"), 1, glm::value_ptr(ui.wireframeColor));
