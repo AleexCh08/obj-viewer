@@ -308,6 +308,7 @@ int main() {
             if (!isClearing) {
                 selectedModelIndex = -1;
                 SceneManager::Clear(models);
+                UIManager::ShowNotification("Escena limpiada correctamente.");
                 isClearing = true;
             }
         } else {
