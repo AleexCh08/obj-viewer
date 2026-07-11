@@ -131,6 +131,7 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             }
             if (ImGui::MenuItem("Limpiar Escena", "Ctrl+N")) {
                 selectedModelIndex = -1;
+                UIManager::ShowNotification("Escena limpiada correctamente.");
                 SceneManager::Clear(models);
             }
             ImGui::Separator();
@@ -279,10 +280,19 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
                 ImGui::EndTabItem();
             }
 
-            if (selectedModelIndex != -1 && selectedModelIndex < (int)models.size()) {
-                Model& currentModel = models[selectedModelIndex];
+            static int lastSelected = -1;
+            if (selectedModelIndex == -1 || selectedModelIndex >= (int)models.size()) {
+                lastSelected = -1;
+            } else {              
+                Model& currentModel = models[selectedModelIndex];           
+                bool selectTransformTab = (selectedModelIndex != lastSelected);
+                if (selectTransformTab) {
+                    lastSelected = selectedModelIndex;
+                }
                 
-                if (ImGui::BeginTabItem("Transformación")) {
+                if (ImGui::BeginTabItem("Transformación",
+                    nullptr,
+                    selectTransformTab ? ImGuiTabItemFlags_SetSelected : 0)) {
                     ImGui::Spacing();
                     
                     float itemW = (ImGui::GetContentRegionAvail().x - 90.0f) / 3.0f;
