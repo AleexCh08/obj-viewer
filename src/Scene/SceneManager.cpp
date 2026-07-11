@@ -44,7 +44,8 @@ bool SceneManager::Save(const std::vector<Model>& models) {
     }
 
     const char* fileFilter[1] = { "*.txt" };
-    const char* filepath = tinyfd_saveFileDialog("Guardar Escena", "scenes/mi_escena.txt", 1, fileFilter, "Archivos de Escena (.txt)");
+    std::string defaultPath = std::filesystem::absolute("scenes/mi_escena.txt").string();
+    const char* filepath = tinyfd_saveFileDialog("Guardar Escena", defaultPath.c_str(), 1, fileFilter, "Archivos de Escena (.txt)");
     
     if (!filepath) return false; 
 
@@ -79,7 +80,8 @@ void SceneManager::Load(std::vector<Model>& models) {
         std::filesystem::create_directory("scenes");
     }
     const char* fileFilter[1] = { "*.txt" };
-    const char* filepath = tinyfd_openFileDialog("Cargar Escena", "scenes/", 1, fileFilter, "Archivos de Escena (.txt)", 0);
+    std::string defaultPath = std::filesystem::absolute("scenes/").string();
+    const char* filepath = tinyfd_openFileDialog("Cargar Escena", defaultPath.c_str(), 1, fileFilter, "Archivos de Escena (.txt)", 0);
 
     if (!filepath) return; 
     
