@@ -328,7 +328,8 @@ int main() {
         }
 
         if (SceneManager::CheckAsyncLoad(models)) {
-            ui.renderMode = 1; 
+            ui.renderMode = 1;
+            UIManager::ShowNotification("Modelo cargado correctamente."); 
         }
 
         bool sceneHasTexture = false;
