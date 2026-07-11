@@ -8,6 +8,7 @@
 #include "Core/InputController.h"
 #include "UI/UIManager.h"
 #include "Graphics/Shaders.h"
+#include "Core/FrustumCulling.h"
 
 // Librerias estandar
 #include <iostream>
@@ -195,8 +196,13 @@ int main() {
 
         glUniform3fv(glGetUniformLocation(shaderProgram, "lightPos"), 1, glm::value_ptr(currentLightPos));
         glUniform3fv(glGetUniformLocation(shaderProgram, "lightColor"), 1, glm::value_ptr(currentLightColor));
+        glm::mat4 viewProjMatrix = camera.getProjectionMatrix() * camera.getViewMatrix();
 
         for (size_t i = 0; i < models.size(); ++i) {
+            if (!models[i].isLight && !Utils::isAABBInFrustum(models[i], viewProjMatrix)) {
+                continue; 
+            }
+
             glUniform1i(glGetUniformLocation(shaderProgram, "isLightSource"), models[i].isLight ? 1 : 0);
             glUniform3fv(glGetUniformLocation(shaderProgram, "objectColor"), 1, glm::value_ptr(models[i].color));
             glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(models[i].transformMatrix));
