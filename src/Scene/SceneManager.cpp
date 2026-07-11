@@ -9,6 +9,9 @@
 #include <algorithm>
 #include <iomanip>
 
+std::atomic<bool> SceneManager::isImportingAsync{false};
+std::future<Model> SceneManager::futureModel;
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -86,7 +89,7 @@ void SceneManager::Load(const std::string& filename, std::vector<Model>& models)
 
         if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path.c_str(), baseDir.c_str())) {
             Model newModel = Model::Process(attrib, shapes, materials, baseDir, true);
-            
+            newModel.setupModel();
             newModel.path = path;
             newModel.position = pos;
             newModel.rotation = rot;
@@ -158,27 +161,52 @@ bool SceneManager::RayIntersectsBoundingBox(const glm::vec3& rayOrigin, const gl
 }
 
 void SceneManager::ImportModel(std::vector<Model>& models) {
+    if (isImportingAsync.load()) return; // Prevenir múltiples clics
+
     const char* fileFilter[1] = { "*.obj" };
     const char* filepath = tinyfd_openFileDialog("Selecciona archivo OBJ", "", 1, fileFilter, "Archivos OBJ", 0);
 
     if (filepath) {
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
-        std::vector<tinyobj::material_t> materials;
-        std::string warn, err;
+        std::string pathStr = filepath;
+        isImportingAsync.store(true);
+        
+        futureModel = std::async(std::launch::async, [pathStr]() {
+            tinyobj::attrib_t attrib;
+            std::vector<tinyobj::shape_t> shapes;
+            std::vector<tinyobj::material_t> materials;
+            std::string warn, err;
 
-        std::filesystem::path objPath(filepath);
-        std::string baseDir = objPath.parent_path().string() + "/";
+            std::filesystem::path objPath(pathStr);
+            std::string baseDir = objPath.parent_path().string() + "/";
 
-        if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath, baseDir.c_str())) {                   
-            Model newModel = Model::Process(attrib, shapes, materials, baseDir, true);
-            newModel.path = std::string(filepath);
-            models.push_back(newModel);                    
-            std::cout << "Modelo cargado: " << objPath.filename() << std::endl;
-        } else {
-            std::cerr << "Error cargando el archivo OBJ: " << err << std::endl;
+            Model newModel;
+            if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, pathStr.c_str(), baseDir.c_str())) {                   
+                newModel = Model::Process(attrib, shapes, materials, baseDir, true);
+                newModel.path = pathStr;
+            } else {
+                std::cerr << "Error cargando el archivo OBJ: " << err << std::endl;
+                newModel.path = "ERROR";
+            }
+            return newModel;
+        });
+    }
+}
+
+// Función para revisar si el hilo terminó
+bool SceneManager::CheckAsyncLoad(std::vector<Model>& models) {
+    if (isImportingAsync.load()) {
+        if (futureModel.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+            Model newModel = futureModel.get(); 
+            if (newModel.path != "ERROR") {
+                newModel.setupModel(); 
+                models.push_back(newModel);
+                std::cout << "Modelo asíncrono cargado: " << std::filesystem::path(newModel.path).filename() << std::endl;
+            }
+            isImportingAsync.store(false);
+            return newModel.hasTexture;
         }
     }
+    return false;
 }
 
 int SceneManager::PickModel(GLFWwindow* window, const std::vector<Model>& models, const Camera& camera) {

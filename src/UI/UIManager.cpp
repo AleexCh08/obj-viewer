@@ -46,6 +46,14 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
+    // Aviso de carga de modelo
+    if (SceneManager::isImportingAsync.load()) {
+        ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::Begin("Loading", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground);
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "CARGANDO MODELO... POR FAVOR ESPERE");
+        ImGui::End();
+    }
+
     // 1. BARRA DE MENÚ SUPERIOR (Nielsen: Consistencia y Estándares)
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("Archivo")) {

@@ -271,9 +271,6 @@ int main() {
         if (ctrlPressed && glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) {
             if (!isImporting) {
                 SceneManager::ImportModel(models);
-                if (!models.empty() && models.back().hasTexture) {
-                    ui.renderMode = 1; // Cambiar a Vista con Textura
-                }
                 isImporting = true; 
             }
         } else {
@@ -331,6 +328,10 @@ int main() {
         // SALIR (Esc)
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
             glfwSetWindowShouldClose(window, true);
+        }
+
+        if (SceneManager::CheckAsyncLoad(models)) {
+            ui.renderMode = 1; // Cambiar a Vista con Textura si corresponde
         }
 
         UIManager::Render(window, ui, models, selectedModelIndex, fps);

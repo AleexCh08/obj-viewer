@@ -1,5 +1,8 @@
 #pragma once
 
+#include <atomic>
+#include <future>
+
 #include "Model.h"
 #include "../Core/Camera.h"
 #include <vector>
@@ -29,4 +32,8 @@ public:
     static void DeleteSelectedModel(std::vector<Model>& models, int& selectedIndex);
     static int PickModel(GLFWwindow* window, const std::vector<Model>& models, const Camera& camera);
     static void AddLight(std::vector<Model>& models);
+
+    static std::atomic<bool> isImportingAsync;
+    static std::future<Model> futureModel;
+    static bool CheckAsyncLoad(std::vector<Model>& models);
 };

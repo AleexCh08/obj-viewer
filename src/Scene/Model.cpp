@@ -1,6 +1,7 @@
 #include "Model.h"
 #include "../include/stb_image.h"
 
+unsigned int TextureFromFile(const char* path, const std::string& directory);
 Model::Model() : VAO(0), VBO(0), EBO(0), 
                  color(0.7f, 0.7f, 0.7f), originalColor(0.7f, 0.7f, 0.7f), 
                  localMinBounds(0.0f), localMaxBounds(0.0f) {}
@@ -32,6 +33,12 @@ void Model::setupModel() {
     glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
+
+    if (!textureToLoad.empty()) {
+        textureID = TextureFromFile(textureToLoad.c_str(), textureBaseDir);
+        hasTexture = true;
+        textureToLoad = "";
+    }
 }
 
 void Model::updateTransformMatrix() {
@@ -184,8 +191,8 @@ Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj:
         model.color = glm::vec3(materials[0].diffuse[0], materials[0].diffuse[1], materials[0].diffuse[2]);
         model.originalColor = model.color;
         if (!materials[0].diffuse_texname.empty()) {
-            model.textureID = TextureFromFile(materials[0].diffuse_texname.c_str(), baseDir);
-            model.hasTexture = true;
+            model.textureToLoad = materials[0].diffuse_texname;
+            model.textureBaseDir = baseDir;
         }
     } else {
         model.color = glm::vec3(0.7f, 0.7f, 0.7f);
@@ -195,8 +202,6 @@ Model Model::Process(const tinyobj::attrib_t& attrib, const std::vector<tinyobj:
     if (normalize) {
         Model::Normalize(model);
     }  
-
-    model.setupModel();
 
     glm::vec3 minBounds(FLT_MAX);
     glm::vec3 maxBounds(-FLT_MAX);

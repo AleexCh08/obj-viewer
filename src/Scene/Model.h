@@ -8,7 +8,7 @@
 #include <string>
 #include <iostream>
 #include <limits>
-#include <algorithm> // Para std::max
+#include <algorithm> 
 
 #include <tinyfiledialogs.h> 
 #include "tiny_obj_loader.h" 
@@ -36,6 +36,9 @@ public:
 
     unsigned int textureID = 0;
     bool hasTexture = false;
+
+    std::string textureToLoad = "";
+    std::string textureBaseDir = "";
 
     GLuint debugNormalsVAO = 0, debugNormalsVBO = 0;
     GLuint debugBoxVAO = 0, debugBoxVBO = 0;
