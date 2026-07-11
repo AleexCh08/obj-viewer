@@ -48,10 +48,51 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
 
     // Aviso de carga de modelo
     if (SceneManager::isImportingAsync.load()) {
-        ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-        ImGui::Begin("Loading", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground);
-        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), "CARGANDO MODELO... POR FAVOR ESPERE");
+        ImGuiWindowFlags loadingFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | 
+                                        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | 
+                                        ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+        
+        ImGuiIO& io = ImGui::GetIO();
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowBgAlpha(0.90f); 
+        
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f); 
+        
+        ImGui::Begin("LoadingModal", nullptr, loadingFlags);
+        
+        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::CalcTextSize("Importando modelo 3D...").x) * 0.5f);
+        ImGui::TextUnformatted("Importando modelo 3D.");
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        ImGui::Spacing();
+
+        // Animación de Spinner Circular personalizado usando ImDrawList
+        float time = (float)glfwGetTime();
+        float radius = 16.0f;
+        float thickness = 4.0f;
+        
+        ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+        ImVec2 center(cursorPos.x + ImGui::GetContentRegionAvail().x * 0.5f, cursorPos.y + radius);
+
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        
+        float startAngle = time * 6.0f; 
+        float endAngle = startAngle + 4.71f; 
+        
+        drawList->PathClear();
+        drawList->PathArcTo(center, radius, startAngle, endAngle, 30); 
+        drawList->PathStroke(ImGui::GetColorU32(ImVec4(0.2f, 0.6f, 1.0f, 1.0f)), 0, thickness);
+
+        ImGui::Dummy(ImVec2(0.0f, radius * 2.0f + 10.0f));
+       
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Procesando geometria y texturas. Por favor espere.");
+        
         ImGui::End();
+        ImGui::PopStyleVar(2); 
     }
 
     // 1. BARRA DE MENÚ SUPERIOR (Nielsen: Consistencia y Estándares)
