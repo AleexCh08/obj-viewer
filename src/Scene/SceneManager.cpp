@@ -11,6 +11,8 @@
 
 std::atomic<bool> SceneManager::isImportingAsync{false};
 std::future<Model> SceneManager::futureModel;
+std::atomic<bool> SceneManager::isLoadingSceneAsync{false};
+std::future<std::vector<Model>> SceneManager::futureScene;
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -36,8 +38,13 @@ void SceneManager::Clear(std::vector<Model>& models) {
     std::cout << "Escena eliminada correctamente.\n";
 }
 
-void SceneManager::Save(const std::string& filename, const std::vector<Model>& models) {
-    std::ofstream file(filename);
+void SceneManager::Save(const std::vector<Model>& models) {
+    const char* fileFilter[1] = { "*.txt" };
+    const char* filepath = tinyfd_saveFileDialog("Guardar Escena", "mi_escena.txt", 1, fileFilter, "Archivos de Escena (.txt)");
+    
+    if (!filepath) return; 
+
+    std::ofstream file(filepath);
     if (!file.is_open()) {
         std::cerr << "Error: No se pudo crear el archivo de escena.\n";
         return;
@@ -45,7 +52,6 @@ void SceneManager::Save(const std::string& filename, const std::vector<Model>& m
 
     for (const auto& model : models) {
         if (model.path.empty()) continue;
-
         file << std::quoted(model.path) << " "
              << model.position.x << " " << model.position.y << " " << model.position.z << " "
              << model.rotation.x << " " << model.rotation.y << " " << model.rotation.z << " "
@@ -54,58 +60,93 @@ void SceneManager::Save(const std::string& filename, const std::vector<Model>& m
     }
     
     file.close();
-    std::cout << "Escena guardada en " << filename << "\n";
+    std::cout << "Escena guardada exitosamente en " << filepath << "\n";
 }
 
-void SceneManager::Load(const std::string& filename, std::vector<Model>& models) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Error: No se encuentra el archivo de escena.\n";
-        return;
-    }
+void SceneManager::Load(std::vector<Model>& models) {
+    if (isLoadingSceneAsync.load() || isImportingAsync.load()) return;
 
-    Clear(models); 
+    const char* fileFilter[1] = { "*.txt" };
+    const char* filepath = tinyfd_openFileDialog("Cargar Escena", "", 1, fileFilter, "Archivos de Escena (.txt)", 0);
 
-    std::string path;
-    glm::vec3 pos, rot, scl, col;
-
-    while (file >> std::quoted(path) >> pos.x >> pos.y >> pos.z >> rot.x >> rot.y >> rot.z >> scl.x >> scl.y >> scl.z >> col.x >> col.y >> col.z) {
-        
-        if (path == "Internal:LightSphere") {
-            if (!models.empty() && models[0].isLight) {
-                models[0].position = pos;
-                models[0].color = col;
-                models[0].updateTransformMatrix();
-            }
-            continue;
-        }
-
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
-        std::vector<tinyobj::material_t> materials;
-        std::string warn, err;
-        
-        std::string baseDir = std::filesystem::path(path).parent_path().string() + "/";
-
-        if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path.c_str(), baseDir.c_str())) {
-            Model newModel = Model::Process(attrib, shapes, materials, baseDir, true);
-            newModel.setupModel();
-            newModel.path = path;
-            newModel.position = pos;
-            newModel.rotation = rot;
-            newModel.scale = scl;
-            newModel.color = col;
-            
-            newModel.updateTransformMatrix(); 
-
-            models.push_back(newModel);
-        } else {
-            std::cerr << "No se pudo recargar el modelo: " << path << "\n";
-        }
-    }
+    if (!filepath) return; 
     
-    file.close();
-    std::cout << "Escena cargada y restaurada desde " << filename << "\n";
+    std::string pathStr = filepath;
+    isLoadingSceneAsync.store(true);
+
+    futureScene = std::async(std::launch::async, [pathStr]() {
+        std::vector<Model> loadedModels;
+        std::ifstream file(pathStr);
+        if (!file.is_open()) {
+            std::cerr << "Error: No se encuentra el archivo de escena.\n";
+            return loadedModels; 
+        }
+
+        std::string path;
+        glm::vec3 pos, rot, scl, col;
+
+        while (file >> std::quoted(path) >> pos.x >> pos.y >> pos.z >> rot.x >> rot.y >> rot.z >> scl.x >> scl.y >> scl.z >> col.x >> col.y >> col.z) {
+            if (path == "Internal:LightSphere") {
+                Model lightData;
+                lightData.isLight = true;
+                lightData.path = path;
+                lightData.position = pos;
+                lightData.color = col;
+                loadedModels.push_back(lightData);
+                continue;
+            }
+
+            tinyobj::attrib_t attrib;
+            std::vector<tinyobj::shape_t> shapes;
+            std::vector<tinyobj::material_t> materials;
+            std::string warn, err;
+            std::string baseDir = std::filesystem::path(path).parent_path().string() + "/";
+
+            if (tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, path.c_str(), baseDir.c_str())) {
+                Model newModel = Model::Process(attrib, shapes, materials, baseDir, true); // Matematica en RAM
+                newModel.path = path;
+                newModel.position = pos;
+                newModel.rotation = rot;
+                newModel.scale = scl;
+                newModel.color = col;
+                newModel.updateTransformMatrix(); 
+                loadedModels.push_back(newModel);
+            } else {
+                std::cerr << "No se pudo recargar el modelo: " << path << "\n";
+            }
+        }
+        file.close();
+        return loadedModels; 
+    });
+}
+
+bool SceneManager::CheckAsyncSceneLoad(std::vector<Model>& models, bool& outHasTexture) {
+    outHasTexture = false;
+    if (isLoadingSceneAsync.load()) {
+        if (futureScene.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+            std::vector<Model> loadedModels = futureScene.get(); 
+            
+            if (!loadedModels.empty()) {
+                Clear(models); 
+
+                for (auto& m : loadedModels) {
+                    if (m.isLight) {
+                        models[0].position = m.position;
+                        models[0].color = m.color;
+                        models[0].updateTransformMatrix();
+                    } else {
+                        m.setupModel(); 
+                        if (m.hasTexture) outHasTexture = true;
+                        models.push_back(m);
+                    }
+                }
+                std::cout << "Escena cargada completamente.\n";
+            }
+            isLoadingSceneAsync.store(false);
+            return true; 
+        }
+    }
+    return false;
 }
 
 void SceneManager::CheckCollisionWithPlatform(Model& model, float platformHeight) {

@@ -16,8 +16,8 @@ struct GLFWwindow;
 class SceneManager {
 public:
     // Gestión de Archivos
-    static void Save(const std::string& filename, const std::vector<Model>& models);
-    static void Load(const std::string& filename, std::vector<Model>& models);
+    static void Save(const std::vector<Model>& models);
+    static void Load(std::vector<Model>& models);
     static void Clear(std::vector<Model>& models);
 
     // Físicas y Colisiones
@@ -36,4 +36,8 @@ public:
     static std::atomic<bool> isImportingAsync;
     static std::future<Model> futureModel;
     static bool CheckAsyncLoad(std::vector<Model>& models);
+
+    static std::atomic<bool> isLoadingSceneAsync;
+    static std::future<std::vector<Model>> futureScene;
+    static bool CheckAsyncSceneLoad(std::vector<Model>& models, bool& outHasTexture);
 };

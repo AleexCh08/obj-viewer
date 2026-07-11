@@ -47,7 +47,7 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
     ImGui::NewFrame();
 
     // Aviso de carga de modelo
-    if (SceneManager::isImportingAsync.load()) {
+    if (SceneManager::isImportingAsync.load() || SceneManager::isLoadingSceneAsync.load()) {
         ImGuiWindowFlags loadingFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | 
                                         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | 
                                         ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
@@ -61,8 +61,9 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         
         ImGui::Begin("LoadingModal", nullptr, loadingFlags);
         
-        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::CalcTextSize("Importando modelo 3D...").x) * 0.5f);
-        ImGui::TextUnformatted("Importando modelo 3D.");
+        const char* titleText = SceneManager::isImportingAsync.load() ? "Importando modelo 3D." : "Cargando escena 3D.";
+        ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::CalcTextSize(titleText).x) * 0.5f);
+        ImGui::TextUnformatted(titleText);
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
@@ -106,11 +107,11 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Guardar Escena", "Ctrl+S")) {
-                SceneManager::Save("scene.txt", models);
+                SceneManager::Save(models);
             }
             if (ImGui::MenuItem("Cargar Escena", "Ctrl+L")) {
                 selectedModelIndex = -1;
-                SceneManager::Load("scene.txt", models);
+                SceneManager::Load(models);
                 for (const auto& m : models) {
                     if (m.hasTexture) { 
                         state.renderMode = 1; 

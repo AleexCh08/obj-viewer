@@ -281,7 +281,7 @@ int main() {
         static bool isSaving = false;
         if (ctrlPressed && glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
             if (!isSaving) {
-                SceneManager::Save("scene.txt", models);
+                SceneManager::Save(models);
                 isSaving = true;
             }
         } else {
@@ -293,13 +293,7 @@ int main() {
         if (ctrlPressed && glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
             if (!isLoading) {
                 selectedModelIndex = -1;
-                SceneManager::Load("scene.txt", models);
-                for (const auto& m : models) {
-                    if (m.hasTexture) { 
-                        ui.renderMode = 1; 
-                        break; 
-                    }
-                }
+                SceneManager::Load(models); 
                 isLoading = true;
             }
         } else {
@@ -331,7 +325,13 @@ int main() {
         }
 
         if (SceneManager::CheckAsyncLoad(models)) {
-            ui.renderMode = 1; // Cambiar a Vista con Textura si corresponde
+            ui.renderMode = 1; 
+        }
+
+        bool sceneHasTexture = false;
+        if (SceneManager::CheckAsyncSceneLoad(models, sceneHasTexture)) {
+            selectedModelIndex = -1;
+            if (sceneHasTexture) ui.renderMode = 1;
         }
 
         UIManager::Render(window, ui, models, selectedModelIndex, fps);
