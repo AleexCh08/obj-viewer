@@ -34,6 +34,7 @@ class UIManager {
 public:
     static void Init(GLFWwindow* window);
     static void Shutdown();
+    static void ShowNotification(const std::string& message);
     
     // Función principal que dibuja toda la interfaz
     static void Render(GLFWwindow* window, UIState& state, std::vector<Model>& models, int& selectedModelIndex, double fps);

@@ -16,7 +16,7 @@ struct GLFWwindow;
 class SceneManager {
 public:
     // Gestión de Archivos
-    static void Save(const std::vector<Model>& models);
+    static bool Save(const std::vector<Model>& models);
     static void Load(std::vector<Model>& models);
     static void Clear(std::vector<Model>& models);
 

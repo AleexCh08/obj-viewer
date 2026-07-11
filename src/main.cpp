@@ -281,7 +281,9 @@ int main() {
         static bool isSaving = false;
         if (ctrlPressed && glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
             if (!isSaving) {
-                SceneManager::Save(models);
+                if (SceneManager::Save(models)) {
+                    UIManager::ShowNotification("Escena guardada correctamente.");
+                }
                 isSaving = true;
             }
         } else {
@@ -332,6 +334,7 @@ int main() {
         if (SceneManager::CheckAsyncSceneLoad(models, sceneHasTexture)) {
             selectedModelIndex = -1;
             if (sceneHasTexture) ui.renderMode = 1;
+            UIManager::ShowNotification("Escena cargada correctamente.");
         }
 
         UIManager::Render(window, ui, models, selectedModelIndex, fps);

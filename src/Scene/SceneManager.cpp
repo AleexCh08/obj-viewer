@@ -38,16 +38,25 @@ void SceneManager::Clear(std::vector<Model>& models) {
     std::cout << "Escena eliminada correctamente.\n";
 }
 
-void SceneManager::Save(const std::vector<Model>& models) {
-    const char* fileFilter[1] = { "*.txt" };
-    const char* filepath = tinyfd_saveFileDialog("Guardar Escena", "mi_escena.txt", 1, fileFilter, "Archivos de Escena (.txt)");
-    
-    if (!filepath) return; 
+bool SceneManager::Save(const std::vector<Model>& models) {
+    if (!std::filesystem::exists("scenes")) {
+        std::filesystem::create_directory("scenes");
+    }
 
-    std::ofstream file(filepath);
+    const char* fileFilter[1] = { "*.txt" };
+    const char* filepath = tinyfd_saveFileDialog("Guardar Escena", "scenes/mi_escena.txt", 1, fileFilter, "Archivos de Escena (.txt)");
+    
+    if (!filepath) return false; 
+
+    std::string finalPath = filepath;
+    if (finalPath.length() < 4 || finalPath.substr(finalPath.length() - 4) != ".txt") {
+        finalPath += ".txt";
+    }
+
+    std::ofstream file(finalPath);
     if (!file.is_open()) {
         std::cerr << "Error: No se pudo crear el archivo de escena.\n";
-        return;
+        return false;
     }
 
     for (const auto& model : models) {
@@ -60,14 +69,17 @@ void SceneManager::Save(const std::vector<Model>& models) {
     }
     
     file.close();
-    std::cout << "Escena guardada exitosamente en " << filepath << "\n";
+    std::cout << "Escena guardada exitosamente en " << finalPath << "\n";
+    return true;
 }
 
 void SceneManager::Load(std::vector<Model>& models) {
     if (isLoadingSceneAsync.load() || isImportingAsync.load()) return;
-
+    if (!std::filesystem::exists("scenes")) {
+        std::filesystem::create_directory("scenes");
+    }
     const char* fileFilter[1] = { "*.txt" };
-    const char* filepath = tinyfd_openFileDialog("Cargar Escena", "", 1, fileFilter, "Archivos de Escena (.txt)", 0);
+    const char* filepath = tinyfd_openFileDialog("Cargar Escena", "scenes/", 1, fileFilter, "Archivos de Escena (.txt)", 0);
 
     if (!filepath) return; 
     

@@ -2,6 +2,14 @@
 #include <imgui_internal.h>
 #include <string>
 
+static float notificationTimer = 0.0f;
+static std::string notificationText = "";
+
+void UIManager::ShowNotification(const std::string& message) {
+    notificationText = message;
+    notificationTimer = 3.0f; 
+}
+
 static void HelpMarker(const char* desc) {
     ImGui::TextDisabled("(?)");
     if (ImGui::IsItemHovered()) {
@@ -107,7 +115,9 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Guardar Escena", "Ctrl+S")) {
-                SceneManager::Save(models);
+                if (SceneManager::Save(models)) {
+                    UIManager::ShowNotification("Escena guardada correctamente.");
+                }
             }
             if (ImGui::MenuItem("Cargar Escena", "Ctrl+L")) {
                 selectedModelIndex = -1;
@@ -415,8 +425,27 @@ void UIManager::Render(GLFWwindow* window, UIState& state, std::vector<Model>& m
         ImGui::Text("%.1f FPS", fps);
         ImGui::End();
     }
-  
 
+    // 4. Notificaciones TIPO TOAST
+    if (notificationTimer > 0.0f) {
+        float dt = ImGui::GetIO().DeltaTime;
+        if (dt > 0.1f) dt = 0.016f; 
+        notificationTimer -= dt;
+        
+        ImGui::SetNextWindowPos(ImVec2(15.0f, ImGui::GetIO().DisplaySize.y - 15.0f), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
+        ImGui::SetNextWindowBgAlpha(0.85f);
+        
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);
+        ImGui::Begin("Notificacion", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove);
+        
+        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.4f, 1.0f), "EXITO:");
+        ImGui::SameLine();
+        ImGui::TextUnformatted(notificationText.c_str());
+        
+        ImGui::End();
+        ImGui::PopStyleVar();
+    }
+  
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
