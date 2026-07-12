@@ -18,9 +18,10 @@ file(GLOB_RECURSE SOURCES
     "src/*.cc"
 )
 
-add_executable(MiApp ${SOURCES})
+add_executable(OBJViewer ${SOURCES})
+target_link_options(OBJViewer PRIVATE "-mwindows")
 
-target_link_libraries(MiApp 
+target_link_libraries(OBJViewer 
     PRIVATE
     glfw3     
     opengl32       
