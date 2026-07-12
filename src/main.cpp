@@ -26,6 +26,7 @@ void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 }
 
 void FramebufferSizeCallback(GLFWwindow* window, int width, int height) {
+    if (width == 0 || height == 0) return;
     glViewport(0, 0, width, height);
     
     if (globalCameraPtr) {
@@ -74,6 +75,13 @@ int main() {
     
     // Bucle principal
     while (!glfwWindowShouldClose(window)) {
+        int currentWidth, currentHeight;
+        glfwGetFramebufferSize(window, &currentWidth, &currentHeight);
+        if (currentWidth == 0 || currentHeight == 0) {
+            glfwWaitEvents(); // Pausa la ejecución hasta que haya un evento (restaurar ventana)
+            continue;         // Salta todo el código de abajo y vuelve al inicio del bucle
+        }
+
         // Calcular FPS promedio
         frameCount++; 
         double currentTime = glfwGetTime();
