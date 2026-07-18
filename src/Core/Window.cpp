@@ -4,6 +4,8 @@
 #define STB_IMAGE_IMPLEMENTATION 
 #include "../include/stb_image.h"
 
+GLFWcursor* Window::customCursor = nullptr;
+
 void Window::framebufferSizeCallback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
 }
@@ -40,6 +42,18 @@ GLFWwindow* Window::Init(int width, int height, const char* title) {
         stbi_image_free(images[0].pixels); 
     } else {
         std::cout << "No se pudo cargar icon.png" << std::endl;
+    }
+
+    GLFWimage cursorImg;
+    cursorImg.pixels = stbi_load("cursor.png", &cursorImg.width, &cursorImg.height, &channels, 4);
+    if (cursorImg.pixels) {
+        customCursor = glfwCreateCursor(&cursorImg, 0, 0); 
+        if (customCursor) {
+            glfwSetCursor(window, customCursor);
+        }
+        stbi_image_free(cursorImg.pixels);
+    } else {
+        std::cout << "No se pudo cargar cursor.png. Se usara el cursor por defecto del SO." << std::endl;
     }
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {

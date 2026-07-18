@@ -25,6 +25,7 @@ void UIManager::Init(GLFWwindow* window) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
     
     // --- ESTILO PRO (Mejorado para Usabilidad) ---
     ImGui::StyleColorsDark();

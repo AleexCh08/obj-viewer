@@ -356,6 +356,9 @@ int main() {
     UIManager::Shutdown();
 
     // Finalizar glfw
+    if (Window::customCursor) {
+        glfwDestroyCursor(Window::customCursor); // Liberar el cursor de la memoria
+    }
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
