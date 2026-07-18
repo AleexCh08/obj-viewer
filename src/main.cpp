@@ -40,6 +40,7 @@ int main() {
     
     GLFWwindow* window = Window::Init(screenWidth, screenHeight, "ViewerOBJ Pro");
     if (!window) return -1;
+    Window::ShowSplashScreen(window, "icon.png");
 
     glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
     glfwGetFramebufferSize(window, &screenWidth, &screenHeight);

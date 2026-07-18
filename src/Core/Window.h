@@ -6,6 +6,7 @@
 class Window {
 public:
     static GLFWwindow* Init(int width, int height, const char* title);
+    static void ShowSplashScreen(GLFWwindow* window, const char* imagePath);
 private:
     static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 };
